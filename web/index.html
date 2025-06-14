@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API2SDK - Convert Postman Collections to SDKs</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOMContentLoaded event fired. Script starting.'); // Added log
+            const token = localStorage.getItem('access_token');
+            console.log('Retrieved token from localStorage:', token); // Added log
+
+            const authLinks = document.getElementById('auth-links');
+            const userMenu = document.getElementById('user-menu');
+            const userNameElement = document.getElementById('user-name');
+
+            if (token) {
+                console.log('Token found. Attempting to fetch profile.');
+                fetch('/api/v1/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    console.log('Profile fetch response status:', response.status);
+                    if (response.ok) {
+                        return response.json().then(data => ({ status: response.status, ok: true, body: data }));
+                    } else {
+                        // Try to get text or json body for more error details
+                        return response.text().then(textBody => {
+                            let errorDetail = textBody;
+                            try {
+                                const parsedBody = JSON.parse(textBody);
+                                errorDetail = parsedBody.message || parsedBody.detail || textBody;
+                            } catch (e) { /* ignore if not json, use raw textBody */ }
+                            console.error('Profile fetch failed. Status:', response.status, 'Response body:', textBody, 'Error detail:', errorDetail);
+                            localStorage.removeItem('access_token');
+                            localStorage.removeItem('refresh_token');
+                            localStorage.removeItem('user');
+                            showAuthLinks();
+                            throw { status: response.status, ok: false, body: textBody, detail: errorDetail };
+                        });
+                    }
+                })
+                .then(result => { // result will be an object { status, ok, body } or this is skipped if error thrown
+                    if (result.ok) {
+                        const data = result.body;
+                        console.log('Profile fetch data:', data);
+                        if (data && data.success && data.data) {
+                            userNameElement.textContent = `Welcome, ${data.data.name || data.data.email}`;
+                            showUserMenu();
+                        } else {
+                            console.log('Profile data not as expected or call not successful. Showing auth links.');
+                            localStorage.removeItem('access_token');
+                            localStorage.removeItem('refresh_token');
+                            localStorage.removeItem('user');
+                            showAuthLinks();
+                        }
+                    }
+                    // No explicit else here, as errors are thrown and caught by .catch
+                })
+                .catch(error => { // Catches network errors or the object thrown from the error path above
+                    console.error('Profile fetch processing error. Details:', error);
+                    // Ensure auth links are shown, though likely already done.
+                    // localStorage.removeItem('auth_token'); // Already called in the error path
+                    // showAuthLinks(); // Already called in the error path
+                });
+            } else {
+                console.log('No token found in localStorage. Showing auth links.'); // Added log
+                showAuthLinks();
+            }
+        });
+
+        function showAuthLinks() {
+            console.log('Calling showAuthLinks()'); // Added log
+            document.getElementById('auth-links').style.display = 'flex';
+            document.getElementById('user-menu').style.display = 'none';
+        }
+
+        function showUserMenu() {
+            console.log('Calling showUserMenu()'); // Added log
+            document.getElementById('auth-links').style.display = 'none';
+            document.getElementById('user-menu').style.display = 'flex';
+        }
+
+        function toggleUserMenu() {
+            const dropdownMenu = document.getElementById('dropdown-menu');
+            dropdownMenu.style.display = dropdownMenu.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            showAuthLinks();
+            // Optionally, redirect to login page or homepage
+            window.location.href = '/login'; 
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.user-avatar') && !event.target.closest('.user-avatar')) {
+                const dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    let openDropdown = dropdowns[i];
+                    if (openDropdown.style.display === 'block') {
+                        openDropdown.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        // Functions for profile and settings placeholders
+        function showProfile() {
+            alert('Profile page/modal coming soon!');
+            toggleUserMenu(); // Close menu
+        }
+
+        function showSettings() {
+            alert('Settings page/modal coming soon!');
+            toggleUserMenu(); // Close menu
+        }
+
+    </script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-code"></i>
+                <span>API2SDK</span>
+            </div>
+            <div class="nav-links">
+                <a href="#home" class="nav-link active">Home</a>
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#public-apis" class="nav-link">Public APIs</a>
+                <a href="#generator" class="nav-link">Generator</a>
+                <a href="#history" class="nav-link">History</a>
+                <div class="auth-links" id="auth-links">
+                    <a href="/login" class="btn btn-secondary btn-sm">Login</a>
+                    <a href="/register" class="btn btn-primary btn-sm">Sign Up</a>
+                </div>
+                <div class="user-menu" id="user-menu" style="display: none;">
+                    <div class="user-info">
+                        <span id="user-name">Welcome!</span>
+                        <div class="user-dropdown">
+                            <button class="user-avatar" onclick="toggleUserMenu()">
+                                <i class="fas fa-user-circle"></i>
+                            </button>
+                            <div class="dropdown-menu" id="dropdown-menu">
+                                <a href="#profile" onclick="showProfile()">
+                                    <i class="fas fa-user"></i> Profile
+                                </a>
+                                <a href="#settings" onclick="showSettings()">
+                                    <i class="fas fa-cog"></i> Settings
+                                </a>
+                                <hr>
+                                <a href="#logout" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                Convert Postman Collections to 
+                <span class="gradient-text">Production-Ready SDKs</span>
+            </h1>
+            <p class="hero-description">
+                Transform your Postman collections into type-safe, production-ready SDKs for JavaScript, Python, Go, Java, and PHP. 
+                Browse our curated collection of popular APIs or upload your own Postman collections.
+            </p>
+            <div class="hero-buttons">
+                <button class="btn btn-primary" 
+                        onclick="document.getElementById('public-apis').scrollIntoView({behavior: 'smooth'})">
+                    <i class="fas fa-search"></i>
+                    Browse APIs
+                </button>
+                <button class="btn btn-secondary" 
+                        onclick="document.getElementById('generator').scrollIntoView({behavior: 'smooth'})">
+                    <i class="fas fa-rocket"></i>
+                    Start Generating
+                </button>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="code-preview">
+                <div class="code-header">
+                    <div class="code-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="code-title">Generated SDK</span>
+                </div>
+                <div class="code-content">
+                    <pre><code class="language-javascript">const client = new APIClient({
+  baseURL: 'https://api.example.com',
+  token: 'your-api-token'
+});
+
+const response = await client.getUsers({
+  page: 1,
+  limit: 10
+});
+
+console.log(response.data);</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose API2SDK?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <h3>Easy Upload</h3>
+                    <p>Simply upload your Postman collection JSON file or paste the content directly</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-code-branch"></i>
+                    </div>
+                    <h3>Multiple Languages</h3>
+                    <p>Generate SDKs in JavaScript, Python, Go, Java, and PHP with different frameworks</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <h3>Public API Library</h3>
+                    <p>Browse and use popular public APIs from our curated collection</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Type Safe</h3>
+                    <p>Generated SDKs include proper type definitions and error handling</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <h3>Instant Download</h3>
+                    <p>Download your generated SDK immediately as a ready-to-use file</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-free-code-camp"></i>
+                    </div>
+                    <h3>100% Free</h3>
+                    <p>Completely free and open-source, no limits or hidden costs</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Public APIs Section -->
+    <section id="public-apis" class="public-apis">
+        <div class="container">
+            <h2 class="section-title">Browse Popular APIs</h2>
+            <p class="section-description">Discover and use popular public APIs with ready-to-import Postman collections</p>
+            
+            <!-- Search and Filter -->
+            <div class="api-search">
+                <div class="search-box">
+                    <input type="text" 
+                           id="api-search" 
+                           placeholder="Search APIs..." 
+                           hx-get="/api/v1/public-apis/popular"
+                           hx-trigger="keyup changed delay:500ms"
+                           hx-target="#api-grid"
+                           hx-swap="innerHTML">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="filter-categories">
+                    <select id="category-filter" 
+                            hx-get="/api/v1/public-apis/popular"
+                            hx-trigger="change"
+                            hx-target="#api-grid"
+                            hx-swap="innerHTML">
+                        <option value="">All Categories</option>
+                        <option value="Testing">Testing</option>
+                        <option value="Weather">Weather</option>
+                        <option value="Developer Tools">Developer Tools</option>
+                        <option value="Geography">Geography</option>
+                        <option value="Fun">Fun</option>
+                        <option value="Payments">Payments</option>
+                        <option value="Space">Space</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- API Grid -->
+            <div class="api-grid" 
+                 id="api-grid"
+                 hx-get="/api/v1/htmx/popular-apis"
+                 hx-trigger="load">
+                <div class="api-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading popular APIs...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Generator Section -->
+    <section id="generator" class="generator">
+        <div class="container">
+            <h2 class="section-title">Generate Your SDK</h2>
+            
+            <!-- Step 1: Choose Source -->
+            <div class="generator-step" id="step-source">
+                <h3>Step 1: Choose Your Source</h3>
+                <div class="source-options">
+                    <button class="source-option active" id="upload-option" 
+                            _="on click 
+                               remove .active from .source-option then add .active to me
+                               hide #api-select-panel then hide #url-import-panel then show #upload-panel">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload Collection</span>
+                        <p>Upload your own Postman collection</p>
+                    </button>
+                    <button class="source-option" id="api-option"
+                            _="on click 
+                               remove .active from .source-option then add .active to me
+                               hide #upload-panel then hide #url-import-panel then show #api-select-panel">
+                        <i class="fas fa-globe"></i>
+                        <span>Use Public API</span>
+                        <p>Select from popular public APIs</p>
+                    </button>
+                    <button class="source-option" id="url-import-option"
+                            _="on click 
+                               remove .active from .source-option then add .active to me
+                               hide #upload-panel then hide #api-select-panel then show #url-import-panel">
+                        <i class="fas fa-link"></i>
+                        <span>Import by URL</span>
+                        <p>Import Postman collection from URL</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload Panel -->
+            <div class="source-panel" id="upload-panel">
+                <h4>Upload Postman Collection</h4>
+                <form hx-post="/api/v1/htmx/collections" 
+                      hx-target="#upload-result"
+                      hx-swap="innerHTML"
+                      hx-indicator="#upload-spinner"
+                      enctype="multipart/form-data">
+                    
+                    <div class="upload-methods">
+                        <div class="upload-method active" id="file-upload">
+                            <h5>Upload File</h5>
+                            <div class="upload-area" 
+                                 _="on dragover halt the event then add .dragover to me
+                                    on dragleave remove .dragover from me
+                                    on drop halt the event then remove .dragover from me then trigger fileSelected">
+                                <div class="upload-content">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Drag and drop your Postman collection JSON file here</p>
+                                    <p class="upload-subtext">or click to browse files</p>
+                                </div>
+                                <input type="file" 
+                                       name="file" 
+                                       id="fileInput" 
+                                       accept=".json" 
+                                       _="on change trigger fileSelected">
+                            </div>
+                        </div>
+                        
+                        <div class="upload-method" id="text-upload">
+                            <h5>Paste JSON</h5>
+                            <textarea name="postman_data" 
+                                      id="jsonInput" 
+                                      placeholder="Paste your Postman collection JSON here..."
+                                      rows="8"
+                                      _="on input 
+                                         if my value's length > 10 
+                                           then remove @disabled from #continueBtn 
+                                           else add @disabled to #continueBtn"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="upload-tabs">
+                        <button type="button" class="tab-btn active" 
+                                _="on click 
+                                   remove .active from .tab-btn then add .active to me
+                                   remove .active from .upload-method then add .active to #file-upload">
+                            <i class="fas fa-file-upload"></i> Upload File
+                        </button>
+                        <button type="button" class="tab-btn" 
+                                _="on click 
+                                   remove .active from .tab-btn then add .active to me
+                                   remove .active from .upload-method then add .active to #text-upload">
+                            <i class="fas fa-paste"></i> Paste JSON
+                        </button>
+                    </div>
+                    
+                    <input type="hidden" name="name" value="Imported Collection">
+                    <input type="hidden" name="description" value="Collection imported from web interface">
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="continueBtn" disabled>
+                            <span id="upload-spinner" class="htmx-indicator">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </span>
+                            <i class="fas fa-arrow-right"></i>
+                            Continue to Configuration
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="upload-result"></div>
+            </div>
+
+            <!-- API Selection Panel -->
+            <div class="source-panel" id="api-select-panel" style="display: none;">
+                <h4>Select Public API</h4>
+                <div class="api-selection" 
+                     hx-get="/api/v1/public-apis/popular"
+                     hx-target="this"
+                     hx-swap="innerHTML"
+                     hx-trigger="load">
+                    <div class="api-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading APIs...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- URL Import Panel (New) -->
+            <div class="source-panel" id="url-import-panel" style="display: none;">
+                <h4>Import Postman Collection from URL</h4>
+                <form hx-post="/api/v1/htmx/collections/from-url" 
+                      hx-target="#url-import-result"
+                      hx-swap="innerHTML"
+                      hx-indicator="#url-import-spinner">
+                    
+                    <div class="form-group">
+                        <label for="postman_url">Postman Collection URL *</label>
+                        <input type="url" 
+                               name="postman_url" 
+                               id="postman_url_input" 
+                               placeholder="https://www.postman.com/collections/your-collection-id" 
+                               required
+                               _="on input if my value then remove @disabled from #importUrlBtn else add @disabled to #importUrlBtn">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="collection_name_url">Collection Name (Optional)</label>
+                        <input type="text" 
+                               name="collection_name" 
+                               id="collection_name_url_input" 
+                               placeholder="My Imported API">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="importUrlBtn" disabled>
+                            <span id="url-import-spinner" class="htmx-indicator">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </span>
+                            <i class="fas fa-download"></i>
+                            Import and Proceed
+                        </button>
+                    </div>
+                </form>
+                <div id="url-import-result"></div>
+            </div>
+
+            <!-- Step 1.5: OpenAPI Preview (New, Initially Hidden) -->
+            <div class="generator-step" id="step-openapi-preview" style="display: none;">
+                <h3>Step 1.5: Review OpenAPI Specification</h3>
+                <p>Your Postman collection has been converted to OpenAPI. Review the specification below.</p>
+                <div class="openapi-preview-area">
+                    <textarea id="openapi-spec-preview" rows="15" readonly></textarea>
+                </div>
+                <input type="hidden" id="openapi-collection-id">
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" 
+                            _="on click 
+                               hide #step-openapi-preview then show #step-source
+                               call document.getElementById('upload-panel-form').reset() // Assuming your upload form has id 'upload-panel-form'
+                               call document.getElementById('url-import-panel-form').reset() // Assuming your url import form has id 'url-import-panel-form'
+                               ">
+                        <i class="fas fa-arrow-left"></i> Back to Source Selection
+                    </button>
+                    <button type="button" class="btn btn-primary" id="proceedToConfigBtn"
+                            _="on click 
+                               hide #step-openapi-preview 
+                               then set document.getElementById('collection-id').value to document.getElementById('openapi-collection-id').value
+                               then show #step-config">
+                        <i class="fas fa-arrow-right"></i>
+                        Proceed to SDK Configuration
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Configure SDK (Initially Hidden) -->
+            <div class="generator-step" id="step-config" style="display: none;">
+                <h3>Step 2: Configure SDK Settings</h3>
+                <form hx-post="/api/v1/generate/sdk" 
+                      hx-target="#generation-result"
+                      hx-swap="innerHTML"
+                      hx-indicator="#generate-spinner">
+                    
+                    <input type="hidden" name="collection_id" id="collection-id">
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="language">Programming Language *</label>
+                            <select name="language" id="language" required
+                                    hx-get="/api/v1/htmx/framework-options"
+                                    hx-trigger="change"
+                                    hx-target="#framework-select"
+                                    hx-swap="innerHTML"
+                                    hx-include="this">
+                                <option value="">Select Language</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="typescript">TypeScript</option>
+                                <option value="python">Python</option>
+                                <option value="go">Go</option>
+                                <option value="java">Java</option>
+                                <option value="swift">Swift</option>
+                                <option value="kotlin">Kotlin</option>
+                                <option value="csharp">C#</option>
+                                <option value="php">PHP</option>
+                                <option value="ruby">Ruby</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="framework">Framework</label>
+                            <select name="framework" id="framework-select">
+                                <option value="">Auto-detect</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="package_name">Package Name *</label>
+                            <input type="text" 
+                                   name="package_name" 
+                                   id="package_name" 
+                                   placeholder="my-api-sdk" 
+                                   required
+                                   _="on input if my value then remove @disabled from #generateBtn">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="client_name">Client Class Name</label>
+                            <input type="text" 
+                                   name="client_name" 
+                                   id="client_name" 
+                                   placeholder="APIClient">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="base_url">Base URL</label>
+                            <input type="url" 
+                                   name="base_url" 
+                                   id="base_url" 
+                                   placeholder="https://api.example.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="auth_method">Authentication Method</label>
+                            <select name="auth_method" id="auth_method">
+                                <option value="">Auto-detect</option>
+                                <option value="bearer">Bearer Token</option>
+                                <option value="apikey">API Key</option>
+                                <option value="basic">Basic Auth</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" 
+                                _="on click hide #step-config then show #step-source">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="generateBtn" disabled>
+                            <span id="generate-spinner" class="htmx-indicator">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </span>
+                            <i class="fas fa-cog"></i>
+                            Generate SDK
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="generation-result"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- History Section -->
+    <section id="history" class="history">
+        <div class="container">
+            <h2 class="section-title">Generation History</h2>
+            <div class="history-controls">
+                <button class="btn btn-secondary" 
+                        hx-get="/api/v1/sdks"
+                        hx-target="#history-list"
+                        hx-indicator="#history-spinner">
+                    <span id="history-spinner" class="htmx-indicator">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                    <i class="fas fa-refresh"></i>
+                    Refresh History
+                </button>
+            </div>
+            <div class="history-list" id="history-list"
+                 hx-get="/api/v1/sdks"
+                 hx-trigger="load">
+                <div class="history-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading history...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-brand">
+                        <i class="fas fa-code"></i>
+                        <span>API2SDK</span>
+                    </div>
+                    <p>Convert Postman collections to production-ready SDKs in multiple programming languages.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Features</h4>
+                    <ul>
+                        <li>Multi-language support</li>
+                        <li>Type-safe generation</li>
+                        <li>Public API library</li>
+                        <li>Free & Open Source</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Supported Languages</h4>
+                    <ul>
+                        <li>JavaScript/TypeScript</li>
+                        <li>Python</li>
+                        <li>Go</li>
+                        <li>Java</li>
+                        <li>Swift</li>
+                        <li>Kotlin</li>
+                        <li>C#</li>
+                        <li>PHP</li>
+                        <li>Ruby</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#public-apis">Public APIs</a></li>
+                        <li><a href="#generator">SDK Generator</a></li>
+                        <li><a href="#history">Generation History</a></li>
+                        <li><a href="https://github.com/AkashKesav/API2SDK" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 API2SDK. Made with ❤️ for developers.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- HTMX Configuration and Event Handlers -->
+    <script>
+        // Configure HTMX with timeout settings
+        htmx.config.timeout = 120000; // 2 minutes timeout for requests
+        htmx.config.historyCacheSize = 10;
+        htmx.config.refreshOnHistoryMiss = true;
+        
+        // Configure HTMX
+        document.body.addEventListener('htmx:configRequest', (evt) => {
+            // Add authentication header to ALL requests
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                evt.detail.headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            // Handle SDK generation form - convert to JSON
+            if (evt.detail.path && evt.detail.path.includes('/generate/sdk')) {
+                console.log('Configuring SDK generation request');
+                evt.detail.headers['Content-Type'] = 'application/json';
+                
+                // Get form element
+                const form = evt.detail.elt;
+                console.log('Form element:', form);
+                
+                // Convert form data to JSON
+                const formData = new FormData(form);
+                const jsonData = {};
+                for (let [key, value] of formData.entries()) {
+                    jsonData[key] = value;
+                    console.log(`Form field: ${key} = ${value}`);
+                }
+                
+                console.log('JSON data:', jsonData);
+                const jsonString = JSON.stringify(jsonData);
+                console.log('JSON string:', jsonString);
+                
+                // Use XMLHttpRequest override approach for better compatibility
+                evt.preventDefault();
+                
+                // Create custom request
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', evt.detail.path, true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                // Add auth header to custom XHR request too
+                if (token) {
+                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                }
+                
+                // Set up response handler
+                xhr.onload = function() {
+                    console.log('Response status:', xhr.status);
+                    console.log('Response text:', xhr.responseText);
+                    
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success && response.data) {
+                                const sdk = response.data;
+                                const target = document.getElementById('generation-result');
+                                target.innerHTML = `
+                                    <div class="generation-success">
+                                        <div class="success-icon">
+                                            <i class="fas fa-check-circle"></i>
+                                        </div>
+                                        <h3>SDK Generated Successfully!</h3>
+                                        <div class="sdk-details">
+                                            <div class="detail-item">
+                                                <span class="label">Language:</span>
+                                                <span class="value">${sdk.language}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="label">Package:</span>
+                                                <span class="value">${sdk.package_name}</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="label">Status:</span>
+                                                <span class="value">${sdk.status}</span>
+                                            </div>
+                                        </div>
+                                        <div class="action-buttons">
+                                            <a href="/api/v1/sdks/${sdk.id}/download" 
+                                               class="btn btn-primary" download>
+                                                <i class="fas fa-download"></i> Download SDK
+                                            </a>
+                                            <button class="btn btn-secondary" 
+                                                    onclick="resetGeneratorForm()">
+                                                <i class="fas fa-plus"></i> Generate Another
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse response:', e);
+                        }
+                    } else {
+                        console.error('Request failed with status:', xhr.status);
+                        const target = document.getElementById('generation-result');
+                        target.innerHTML = `
+                            <div class="alert alert-error">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <strong>Error:</strong> Request failed with status ${xhr.status}
+                            </div>
+                        `;
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    console.error('Request failed');
+                    const target = document.getElementById('generation-result');
+                    target.innerHTML = `
+                        <div class="alert alert-error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <strong>Error:</strong> Network error occurred
+                        </div>
+                    `;
+                };
+                
+                // Send the request
+                xhr.send(jsonString);
+                
+                return false; // Prevent default HTMX handling
+            }
+            // For collection creation forms (file uploads), keep multipart/form-data
+            else if (evt.detail.elt.tagName === 'FORM' && evt.detail.elt.enctype !== 'multipart/form-data') {
+                evt.detail.headers['Content-Type'] = 'application/json';
+            }
+        });
+
+        // Handle successful requests
+        document.body.addEventListener('htmx:afterRequest', (evt) => {
+            if (evt.detail.xhr.status === 200 || evt.detail.xhr.status === 201) {
+                const url = evt.detail.requestConfig.url || '';
+                const responseText = evt.detail.xhr.responseText;
+                
+                // Check if response is JSON
+                let isJSON = false;
+                let response = null;
+                try {
+                    response = JSON.parse(responseText);
+                    isJSON = true;
+                } catch (e) {
+                    // Response is HTML, let HTMX handle it normally
+                    console.log('Response is HTML, letting HTMX handle it');
+                    return;
+                }
+                
+                // Only handle JSON responses with custom logic
+                if (isJSON) {
+                    if (url.includes('/collections')) {
+                        // Collection uploaded successfully
+                        if (response.success && response.data && response.data.id) {
+                            document.getElementById('collection-id').value = response.data.id;
+                            document.getElementById('step-source').style.display = 'none';
+                            document.getElementById('step-config').style.display = 'block';
+                            
+                            // Show success message
+                            evt.detail.target.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    Collection uploaded successfully! Continue to configuration.
+                                </div>
+                            `;
+                        }
+                    } else if (url.includes('/api/v1/htmx/collections/from-url')) { // Handle URL import response
+                        if (response.success && response.data) {
+                            document.getElementById('openapi-collection-id').value = response.data.collection_id;
+                            document.getElementById('openapi-spec-preview').value = response.data.openapi_spec;
+                            document.getElementById('step-source').style.display = 'none';
+                            document.getElementById('url-import-panel').style.display = 'none'; // Hide the import panel
+                            document.getElementById('step-openapi-preview').style.display = 'block';
+                            
+                            // Show success message in the result area for URL import
+                            evt.detail.target.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    Collection imported and converted to OpenAPI successfully!
+                                </div>
+                            `;
+                        }
+                    } else if (url.includes('/api/v1/htmx/collections/from-public-api')) { // Handle Public API import response
+                        if (response.success && response.data) {
+                            document.getElementById('openapi-collection-id').value = response.data.collection_id;
+                            document.getElementById('openapi-spec-preview').value = response.data.openapi_spec;
+                            document.getElementById('step-source').style.display = 'none';
+                            document.getElementById('public-api-panel').style.display = 'none'; // Hide the public API panel
+                            document.getElementById('step-openapi-preview').style.display = 'block';
+                            
+                            // Show success message in the result area for public API import
+                            evt.detail.target.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    Public API imported and converted to OpenAPI successfully!
+                                </div>
+                            `;
+                        }
+                    } else if (url.includes('/generate/sdk')) {
+                        // SDK generated successfully
+                        if (response.success && response.data) {
+                            const sdk = response.data;
+                            evt.detail.target.innerHTML = `
+                                <div class="generation-success">
+                                    <div class="success-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <h3>SDK Generated Successfully!</h3>
+                                    <div class="sdk-details">
+                                        <div class="detail-item">
+                                            <span class="label">Language:</span>
+                                            <span class="value">${sdk.language}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Package:</span>
+                                            <span class="value">${sdk.package_name}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="label">Status:</span>
+                                            <span class="value">${sdk.status}</span>
+                                        </div>
+                                    </div>
+                                    <div class="action-buttons">
+                                        <a href="/api/v1/sdks/${sdk.id}/download" 
+                                           class="btn btn-primary" download>
+                                            <i class="fas fa-download"></i> Download SDK
+                                        </a>
+                                        <button class="btn btn-secondary" 
+                                                onclick="resetGeneratorForm()">
+                                            <i class="fas fa-plus"></i> Generate Another
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } else if (url.includes('/public-apis/popular')) {
+                        // Handle popular APIs response
+                        handlePopularAPIsResponse(response, evt.detail.target);
+                    }
+                }
+            }
+        });
+
+        // Handle errors and timeouts
+        document.body.addEventListener('htmx:responseError', (evt) => {
+            let errorMessage = 'An error occurred';
+            let isTimeout = false;
+            
+            // Check if it's a timeout error
+            if (evt.detail.xhr.status === 0 || evt.detail.xhr.status === 408) {
+                isTimeout = true;
+                errorMessage = 'Request timeout - the operation is taking longer than expected. Please try again with a smaller collection or check your connection.';
+            } else {
+                try {
+                    const errorData = JSON.parse(evt.detail.xhr.responseText);
+                    errorMessage = errorData.message || errorMessage;
+                    
+                    // Check for timeout in error message
+                    if (errorMessage.toLowerCase().includes('timeout')) {
+                        isTimeout = true;
+                    }
+                } catch (e) {
+                    errorMessage = `Server error occurred (${evt.detail.xhr.status})`;
+                }
+            }
+            
+            evt.detail.target.innerHTML = `
+                <div class="alert alert-error">
+                    <i class="fas fa-${isTimeout ? 'clock' : 'exclamation-circle'}"></i>
+                    <strong>${isTimeout ? 'Timeout Error:' : 'Error:'}</strong> ${errorMessage}
+                    ${isTimeout ? `
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-secondary btn-sm" onclick="retryLastRequest(this)">
+                                <i class="fas fa-redo"></i> Retry Request
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        // Handle timeout specifically
+        document.body.addEventListener('htmx:timeout', (evt) => {
+            evt.detail.target.innerHTML = `
+                <div class="alert alert-error">
+                    <i class="fas fa-clock"></i>
+                    <strong>Request Timeout:</strong> The operation is taking longer than expected. 
+                    This might be due to a large collection or slow network. Please try again.
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-secondary btn-sm" onclick="retryLastRequest(this)">
+                            <i class="fas fa-redo"></i> Retry Request
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        // File upload handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.querySelector('.upload-area');
+            const continueBtn = document.getElementById('continueBtn');
+
+            if (uploadArea && fileInput) {
+                uploadArea.addEventListener('click', () => fileInput.click());
+
+                fileInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        continueBtn.disabled = false;
+                        uploadArea.classList.add('has-file');
+                        uploadArea.querySelector('p').textContent = `Selected: ${this.files[0].name}`;
+                    }
+                });
+            }
+        });
+
+        // Handle popular APIs response
+        function handlePopularAPIsResponse(response, target) {
+            const apis = response.data || response;
+            let html = '';
+            
+            if (Array.isArray(apis) && apis.length > 0) {
+                apis.forEach(api => {
+                    html += `
+                        <div class="api-card" data-api-id="${api.postman_id || ''}">
+                            <div class="api-header">
+                                <h4>${api.name}</h4>
+                                <span class="api-category">${api.category}</span>
+                            </div>
+                            <p class="api-description">${api.description}</p>
+                            <div class="api-tags">
+                                ${api.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            </div>
+                            <div class="api-actions">
+                                <button class="btn btn-primary btn-sm" 
+                                        onclick="selectAPI('${api.postman_id}', '${api.name}', '${api.base_url}')">
+                                    <i class="fas fa-check"></i> Select API
+                                </button>
+                                <a href="${api.postman_url}" target="_blank" class="btn btn-secondary btn-sm">
+                                    <i class="fas fa-external-link-alt"></i> View Collection
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html = `
+                    <div class="api-placeholder">
+                        <i class="fas fa-search"></i>
+                        <p>No APIs found. Try different search terms.</p>
+                    </div>
+                `;
+            }
+            
+            target.innerHTML = html;
+        }
+
+        // Select API function
+        function selectAPI(postmanId, name, baseUrl) {
+            // Show loading state
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing & Converting...';
+            button.disabled = true;
+
+            // Get authorization token
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                alert('Please log in to continue');
+                button.innerHTML = originalText;
+                button.disabled = false;
+                return;
+            }
+
+            // Import the collection first (this will now be a direct call to a new endpoint that handles import + conversion)
+            fetch('/api/v1/htmx/collections/from-public-api', { // New endpoint
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    postman_id: postmanId, // Pass Postman ID or full URL if needed by backend
+                    name: name,
+                    base_url: baseUrl // Pass base_url if you want to prefill it
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    document.getElementById('openapi-collection-id').value = data.data.collection_id;
+                    document.getElementById('openapi-spec-preview').value = data.data.openapi_spec;
+                    if (baseUrl) {
+                        document.getElementById('base_url').value = baseUrl;
+                    }
+                    
+                    const packageName = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+                    document.getElementById('package_name').value = packageName + '-sdk';
+                    
+                    const clientName = name.replace(/[^a-zA-Z0-9]/g, '') + 'Client';
+                    document.getElementById('client_name').value = clientName;
+                    
+                    document.getElementById('generateBtn').disabled = false;
+                    
+                    document.getElementById('step-source').style.display = 'none';
+                    document.getElementById('api-select-panel').style.display = 'none'; // Hide API select panel
+                    document.getElementById('step-openapi-preview').style.display = 'block';
+                    
+                    showNotification('success', `Successfully imported and converted ${name} API! Review OpenAPI and configure SDK.`);
+                } else {
+                    throw new Error(data.message || 'Failed to import and convert API');
+                }
+            })
+            .catch(error => {
+                showNotification('error', 'Import & Conversion failed: ' + error.message);
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+        }
+
+        // Show notification function
+        function showNotification(type, message) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type}`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '10000';
+            notification.style.maxWidth = '400px';
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
+        // Reset generator form function
+        function resetGeneratorForm() {
+            // Hide config step and show source step
+            document.getElementById('step-config').style.display = 'none';
+            document.getElementById('step-source').style.display = 'block';
+            
+            // Reset all forms
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => form.reset());
+            
+            // Reset buttons
+            document.getElementById('continueBtn').disabled = true;
+            document.getElementById('generateBtn').disabled = true;
+            
+            // Clear results
+            document.getElementById('upload-result').innerHTML = '';
+            document.getElementById('generation-result').innerHTML = '';
+            
+            // Reset file upload display
+            const uploadArea = document.querySelector('.upload-area');
+            if (uploadArea) {
+                uploadArea.classList.remove('has-file');
+                uploadArea.querySelector('p').textContent = 'Drag and drop your Postman collection JSON file here';
+            }
+        }
+
+        // Retry last request function
+        function retryLastRequest(button) {
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Retrying...';
+            button.disabled = true;
+            
+            // Find the parent form and trigger submission again
+            let form = button.closest('form');
+            if (!form) {
+                // Look for the nearest form or element with HTMX attributes
+                const container = button.closest('.generator-step') || button.closest('.source-panel');
+                form = container?.querySelector('form');
+            }
+            
+            if (form) {
+                // Clear the error message first
+                const target = button.closest('.alert').parentNode;
+                if (target) {
+                    target.innerHTML = '<div class="api-placeholder"><i class="fas fa-spinner fa-spin"></i><p>Retrying request...</p></div>';
+                }
+                
+                // Trigger form submission after a short delay
+                setTimeout(() => {
+                    htmx.trigger(form, 'submit');
+                }, 500);
+            } else {
+                // If no form found, try to reload the page section
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        }
+
+        // Authentication functions
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('dropdown-menu');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            showAuthLinks();
+            // Optionally, redirect to login page or homepage
+            window.location.href = '/login'; 
+        }
+
+        function showProfile() {
+            alert('Profile functionality coming soon!');
+        }
+
+        function showSettings() {
+            alert('Settings functionality coming soon!');
+        }
+
+        // Check authentication on page load
+        function checkAuthentication() {
+            const token = localStorage.getItem('access_token');
+            const authLinks = document.getElementById('auth-links');
+            const userMenu = document.getElementById('user-menu');
+            
+            if (token) {
+                // Verify token with server
+                fetch('/api/v1/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Token invalid');
+                    }
+                })
+                .then(data => {
+                    // User is authenticated
+                    authLinks.style.display = 'none';
+                    userMenu.style.display = 'block';
+                    
+                    // Update user name if available
+                    const userName = document.getElementById('user-name');
+                    if (data.data && data.data.email) {
+                        userName.textContent = `Welcome, ${data.data.email.split('@')[0]}!`;
+                    }
+                })
+                .catch(error => {
+                    // Token is invalid, remove it
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('user');
+                    authLinks.style.display = 'block';
+                    userMenu.style.display = 'none';
+                });
+            } else {
+                // User is not authenticated
+                authLinks.style.display = 'block';
+                userMenu.style.display = 'none';
+            }
+        }
+
+        // Handle authentication errors
+        document.body.addEventListener('htmx:responseError', (evt) => {
+            if (evt.detail.xhr.status === 401) {
+                // Unauthorized - redirect to login
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                localStorage.removeItem('user');
+                showNotification('error', 'Session expired. Please log in again.');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            }
+        });
+
+        // Close user menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const userMenu = document.querySelector('.user-dropdown');
+            const dropdown = document.getElementById('dropdown-menu');
+            
+            if (!userMenu.contains(event.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Initialize authentication check on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthentication();
+        });
+    </script>
+</body>
+</html>

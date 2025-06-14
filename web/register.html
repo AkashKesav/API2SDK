@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - API2SDK</title>
+    <link rel="stylesheet" href="assets/css/auth.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">
+                    <i class="fas fa-code"></i>
+                    <span>API2SDK</span>
+                </div>
+                <h1>Create Account</h1>
+                <p>Join API2SDK to start generating SDKs</p>
+            </div>
+
+            <form class="auth-form" 
+                  hx-post="/api/v1/auth/register"
+                  hx-target="#auth-result"
+                  hx-swap="innerHTML"
+                  hx-indicator="#register-spinner"
+                  hx-json-enc>
+                
+                <div id="auth-result"></div>
+                
+                <div class="form-group">
+                    <label for="name">Full Name (Username)</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" 
+                               id="name" 
+                               name="name" 
+                               placeholder="Enter your full name (this will be your username)" 
+                               required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" 
+                               id="email" 
+                               name="email" 
+                               placeholder="Enter your email" 
+                               required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Create a strong password" 
+                               minlength="8"
+                               required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('password')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="password-strength" id="password-strength"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" 
+                               id="confirm-password" 
+                               name="confirm_password" 
+                               placeholder="Confirm your password" 
+                               required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('confirm-password')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="terms_accepted" required>
+                        <span class="checkmark"></span>
+                        I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="newsletter_subscription">
+                        <span class="checkmark"></span>
+                        Subscribe to our newsletter for updates and tips
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span id="register-spinner" class="htmx-indicator">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                    <span class="btn-text">Create Account</span>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="/login">Sign in here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle successful registration
+        document.body.addEventListener('htmx:afterRequest', (evt) => {
+            if (evt.detail.xhr.status === 200 && evt.detail.requestConfig.path.includes('/auth/register')) { // Changed to requestConfig.path
+                try {
+                    const response = JSON.parse(evt.detail.xhr.responseText);
+                    if (response.success) {
+                        // Show success message
+                        document.getElementById('auth-result').innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i>
+                                Account created successfully! Redirecting to login...
+                            </div>
+                        `;
+                        
+                        // Redirect to login
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse registration response:', e);
+                }
+            }
+        });
+
+        // Handle registration errors
+        document.body.addEventListener('htmx:responseError', (evt) => {
+            if (evt.detail.requestConfig.path.includes('/auth/register')) { // Changed to requestConfig.path
+                let errorMessage = 'Registration failed. Please try again.';
+                try {
+                    const errorData = JSON.parse(evt.detail.xhr.responseText);
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // Use default message
+                }
+                
+                document.getElementById('auth-result').innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        ${errorMessage}
+                    </div>
+                `;
+            }
+        });
+
+        // Configure HTMX for JSON requests
+        document.body.addEventListener('htmx:configRequest', (evt) => {
+            /*
+            if (evt.detail.path.includes('/auth/register')) { 
+                // This block is now handled by hx-json-enc on the form
+                // evt.detail.headers['Content-Type'] = 'application/json'; 
+                // const formData = new FormData(evt.detail.elt);
+                // const jsonData = {};
+                // formData.forEach((value, key) => {
+                //     if (key === 'username' || key === 'email' || key === 'password') {
+                //         jsonData[key] = value;
+                //     }
+                // });
+                // evt.detail.parameters = JSON.stringify(jsonData);
+            }
+            */
+            // If other /auth/ paths or other general JSON configurations are needed, they can go here.
+            // For example, if /auth/login also needed to be JSON and didn't use hx-json-enc:
+            // if (evt.detail.path.includes('/auth/login')) {
+            //     evt.detail.headers['Content-Type'] = 'application/json';
+            //     // ... logic to build JSON for login ...
+            //     // evt.detail.parameters = JSON.stringify(loginJsonData);
+            // }
+        });
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.parentNode.querySelector('.toggle-password i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // Password strength checker
+        document.getElementById('password').addEventListener('input', function() {
+            const password = this.value;
+            const strengthIndicator = document.getElementById('password-strength');
+            const strength = checkPasswordStrength(password);
+            
+            strengthIndicator.className = 'password-strength ' + strength.class;
+            strengthIndicator.textContent = strength.text;
+        });
+
+        function checkPasswordStrength(password) {
+            if (password.length === 0) {
+                return { class: '', text: '' };
+            }
+            
+            let score = 0;
+            const checks = [
+                password.length >= 8,
+                /[a-z]/.test(password),
+                /[A-Z]/.test(password),
+                /\d/.test(password),
+                /[!@#$%^&*(),.?":{}|<>]/.test(password)
+            ];
+            
+            score = checks.filter(Boolean).length;
+            
+            if (score < 3) {
+                return { class: 'weak', text: 'Weak password' };
+            } else if (score < 4) {
+                return { class: 'medium', text: 'Medium strength' };
+            } else {
+                return { class: 'strong', text: 'Strong password' };
+            }
+        }
+
+        // Password confirmation validation
+        document.getElementById('confirm-password').addEventListener('input', function() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = this.value;
+            
+            if (confirmPassword && password !== confirmPassword) {
+                this.setCustomValidity('Passwords do not match');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+
+        // Check if user is already logged in
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/v1/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        localStorage.removeItem('auth_token');
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('auth_token');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

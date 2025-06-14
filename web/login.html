@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - API2SDK</title>
+    <link rel="stylesheet" href="assets/css/auth.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">
+                    <i class="fas fa-code"></i>
+                    <span>API2SDK</span>
+                </div>
+                <h1>Welcome Back</h1>
+                <p>Sign in to your account to continue</p>
+            </div>
+
+            <form class="auth-form" 
+                  hx-post="/api/v1/auth/login"
+                  hx-target="#auth-result"
+                  hx-swap="innerHTML"
+                  hx-indicator="#login-spinner"
+                  hx-json-enc>
+                
+                <div id="auth-result"></div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" 
+                               id="email" 
+                               name="email" 
+                               placeholder="Enter your email" 
+                               required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Enter your password" 
+                               required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('password')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="remember_me">
+                        <span class="checkmark"></span>
+                        Remember me
+                    </label>
+                    <a href="/forgot-password" class="forgot-password">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span id="login-spinner" class="htmx-indicator">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                    <span class="btn-text">Sign In</span>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="/register">Sign up here</a></p>
+            </div>
+
+            <div class="divider">
+                <span>or continue with</span>
+            </div>
+
+            <div class="social-login">
+                <button class="btn btn-social btn-google" onclick="signInWithGoogle()">
+                    <i class="fab fa-google"></i>
+                    Google
+                </button>
+                <button class="btn btn-social btn-github" onclick="signInWithGitHub()">
+                    <i class="fab fa-github"></i>
+                    GitHub
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle successful login
+        document.body.addEventListener('htmx:afterRequest', (evt) => {
+            if (evt.detail.xhr.status === 200 && evt.detail.requestConfig.path.includes('/auth/login')) {
+                try {
+                    const response = JSON.parse(evt.detail.xhr.responseText);
+                    if (response.success && response.data && response.data.access_token) {
+                        // Store both tokens
+                        localStorage.setItem('access_token', response.data.access_token);
+                        localStorage.setItem('refresh_token', response.data.refresh_token);
+                        
+                        // Store user info
+                        if (response.data.user) {
+                            localStorage.setItem('user', JSON.stringify(response.data.user));
+                        }
+                        
+                        // Show success message
+                        document.getElementById('auth-result').innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i>
+                                Login successful! Redirecting...
+                            </div>
+                        `;
+                        
+                        // Redirect to dashboard
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 1500);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse login response:', e);
+                }
+            }
+        });
+
+        // Handle login errors
+        document.body.addEventListener('htmx:responseError', (evt) => {
+            if (evt.detail.requestConfig.path.includes('/auth/login')) { // Changed to requestConfig.path
+                let errorMessage = 'Login failed. Please try again.';
+                try {
+                    const errorData = JSON.parse(evt.detail.xhr.responseText);
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // Use default message
+                }
+                
+                document.getElementById('auth-result').innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        ${errorMessage}
+                    </div>
+                `;
+            }
+        });
+
+        // Configure HTMX for JSON requests
+        document.body.addEventListener('htmx:configRequest', (evt) => {
+            // The hx-json-enc attribute on the form now handles JSON encoding for the login form.
+            // If other /auth/ paths or general JSON configurations are needed, they can go here.
+            // For example, if /auth/some-other-action also needed to be JSON and didn't use hx-json-enc:
+            // if (evt.detail.path.includes('/auth/some-other-action')) {
+            //     evt.detail.headers['Content-Type'] = 'application/json';
+            //     // ... logic to build JSON for that action ...
+            //     // evt.detail.parameters = JSON.stringify(otherJsonData);
+            // }
+        });
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.parentNode.querySelector('.toggle-password i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        function signInWithGoogle() {
+            // Implement Google OAuth
+            alert('Google OAuth integration coming soon!');
+        }
+
+        function signInWithGitHub() {
+            // Implement GitHub OAuth
+            alert('GitHub OAuth integration coming soon!');
+        }
+
+        // Check if user is already logged in
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/v1/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/';
+                    } else {
+                        // Token is invalid, clear all auth data
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('refresh_token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    // Network error, clear auth data
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('user');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

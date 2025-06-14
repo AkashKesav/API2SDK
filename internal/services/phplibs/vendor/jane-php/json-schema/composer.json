@@ -1,0 +1,59 @@
+{
+    "name": "jane-php/json-schema",
+    "description": "Generate a serializable / deserializable object model given a json schema",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Joel Wurtz",
+            "email": "jwurtz@jolicode.com"
+        },
+        {
+            "name": "Baptiste Leduc",
+            "email": "baptiste.leduc@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-json": "*",
+        "doctrine/inflector": "^1.0",
+        "jane-php/json-schema-runtime": "^5.0",
+        "nikic/php-parser": "^4.0",
+        "symfony/console": "^3.1 || ^4.0 || ^5.0",
+        "symfony/filesystem": "^3.1 || ^4.0 || ^5.0",
+        "symfony/options-resolver": "^3.1 || ^4.0 || ^5.0",
+        "symfony/serializer": "^4.2 || ^5.0",
+        "symfony/yaml": "^3.1 || ^4.0 || ^5.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "2.15.3",
+        "phpunit/phpunit": "^8.0"
+    },
+    "suggest": {
+        "friendsofphp/php-cs-fixer": "Allow to automatically fix cs on generated code for better visualisation"
+    },
+    "config": {
+        "process-timeout": 1800,
+        "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "5-dev"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Jane\\JsonSchema\\": ""
+        },
+        "exclude-from-classmap": [
+            "/Tests/"
+        ]
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "bin": [
+        "bin/jane"
+    ],
+    "scripts": {
+        "test": "vendor/bin/phpunit"
+    }
+}

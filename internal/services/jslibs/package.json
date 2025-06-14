@@ -1,0 +1,20 @@
+{
+  "name": "jslibs",
+  "version": "1.0.0",
+  "description": "JavaScript libraries for API2SDK",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "build": "esbuild bundler_temp/index.js --bundle --outfile=dist/bundle.js --platform=node --format=iife --global-name=API2SDK_JS_LIBS --loader:.js=jsx",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "openapi-typescript": "^6.7.5",
+    "postman-to-openapi": "^1.7.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.2"
+  }
+}
