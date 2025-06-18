@@ -12,7 +12,7 @@ type PlatformSettingsService interface {
 	GetPlatformSettingsMap(ctx context.Context) (map[string]interface{}, error)
 	UpdatePlatformSettings(ctx context.Context, settings map[string]interface{}) (map[string]interface{}, error)
 	GetPlatformSettingsStruct(ctx context.Context) (*models.PlatformSettings, error) // New method
-	GetSupportedSDKLanguages(ctx context.Context) ([]string, error) // New method for supported languages
+	GetSupportedSDKLanguages(ctx context.Context) ([]string, error)                  // New method for supported languages
 }
 
 // PlatformSettingsServiceImpl implements PlatformSettingsService.
@@ -74,7 +74,7 @@ func (s *PlatformSettingsServiceImpl) GetSupportedSDKLanguages(ctx context.Conte
 	}
 	// If SupportedSDKLanguages is nil (e.g. not set in DB), return empty slice to avoid nil pointer dereference
 	if settingsDoc.SupportedSDKLanguages == nil {
-	    return []string{}, nil
+		return []string{}, nil
 	}
 	return settingsDoc.SupportedSDKLanguages, nil
 }

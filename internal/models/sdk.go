@@ -27,10 +27,10 @@ const (
 
 // SDK represents an SDK or MCP generation record.
 type SDK struct {
-	ID             primitive.ObjectID  `bson:"_id,omitempty" json:"id,omitempty"`
-	UserID         string              `bson:"userId" json:"userId"` // User who generated the SDK
-	CollectionID   string              `bson:"collectionId,omitempty" json:"collectionId,omitempty"`
-	GenerationType GenerationType      `bson:"generationType" json:"generationType"` // New: "sdk" or "mcp"
+	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	UserID         string             `bson:"userId" json:"userId"` // User who generated the SDK
+	CollectionID   string             `bson:"collectionId,omitempty" json:"collectionId,omitempty"`
+	GenerationType GenerationType     `bson:"generationType" json:"generationType"` // New: "sdk" or "mcp"
 
 	// SDK-specific fields (optional if GenerationType is mcp)
 	PackageName string `bson:"packageName,omitempty" json:"packageName,omitempty"`

@@ -390,7 +390,7 @@ func (s *SDKService) GenerateSDK(ctx context.Context, genReq *models.SDKGenerati
 
 	// For now, simulate generation success after a delay
 	s.logger.Info("Simulating SDK generation...", zap.String("recordID", recordID.Hex()), zap.String("language", genReq.Language)) // Corrected
-	time.Sleep(5 * time.Second) // Simulate work
+	time.Sleep(5 * time.Second)                                                                                                    // Simulate work
 
 	// Assume generation was successful and produced a file.
 	// The actual file path would be determined by the generation process.
@@ -1250,8 +1250,7 @@ func (s *SDKService) DeleteGeneratedSDKsForCollection(ctx context.Context, colle
 				}
 			}
 		}
-		if err := s.sdkRepo.SoftDelete(ctx, sdk.ID, sdk.UserID);
-			err != nil {
+		if err := s.sdkRepo.SoftDelete(ctx, sdk.ID, sdk.UserID); err != nil {
 			s.logger.Error("Failed to soft delete SDK record", zap.String("sdkID", sdk.ID.Hex()), zap.Error(err))
 			if firstError == nil {
 				firstError = fmt.Errorf("failed to soft delete SDK record %s: %w", sdk.ID.Hex(), err)
@@ -1305,7 +1304,7 @@ func (s *SDKService) UpdateSDKRecordStatus(ctx context.Context, sdkID string, st
 	}
 
 	if status == models.SDKStatusCompleted {
-		updateFields["errorMessage"] = "" // Clear error message on success
+		updateFields["errorMessage"] = ""       // Clear error message on success
 		updateFields["finishedAt"] = time.Now() // Set finishedAt on completion
 	}
 

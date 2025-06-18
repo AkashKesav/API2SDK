@@ -11,8 +11,8 @@ type PlatformSettings struct {
 	ID                    primitive.ObjectID     `bson:"_id,omitempty" json:"id,omitempty"`
 	PostmanAPIKey         string                 `bson:"postmanApiKey,omitempty" json:"postmanApiKey,omitempty"`
 	JWTSecretKey          string                 `bson:"jwtSecretKey,omitempty" json:"jwtSecretKey,omitempty"`
-	MaintenanceMode       bool                   `bson:"maintenanceMode,omitempty" json:"maintenanceMode,omitempty"` // Added Maintenance Mode
-	LogConfig             LogSettings            `bson:"logConfig,omitempty" json:"logConfig,omitempty"`             // Added for log management settings
+	MaintenanceMode       bool                   `bson:"maintenanceMode,omitempty" json:"maintenanceMode,omitempty"`             // Added Maintenance Mode
+	LogConfig             LogSettings            `bson:"logConfig,omitempty" json:"logConfig,omitempty"`                         // Added for log management settings
 	SupportedSDKLanguages []string               `bson:"supportedSdkLanguages,omitempty" json:"supportedSdkLanguages,omitempty"` // Added for supported SDK languages
 	Settings              map[string]interface{} `bson:"settings" json:"settings"`
 	UpdatedAt             time.Time              `bson:"updatedAt" json:"updatedAt"`
