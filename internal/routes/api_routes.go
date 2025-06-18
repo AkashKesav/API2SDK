@@ -58,24 +58,23 @@ func setupPublicAPIRoutes(api fiber.Router, publicAPIController *controllers.Pub
 }
 
 // HTMX specific routes
-// Middleware (e.g., OptionalAuth or JWT) is applied in SetupAPIRoutes (in setup.go).
-func setupHTMXRoutes(api fiber.Router, htmxController *controllers.HTMXController) {
-	// htmx := api.Group("/htmx") // Group is already created and passed as `api` argument
-	api.Post("/collections", htmxController.CreateCollectionHTML)                              // Existing: handles file upload
-	api.Post("/collections/from-url", htmxController.CreateCollectionFromURLHTML)              // New: handles URL import
-	api.Post("/collections/from-public-api", htmxController.CreateCollectionFromPublicAPIHTML) // New: handles public API selection
+// Some routes are public, some require authentication
+func setupHTMXRoutes(publicApi fiber.Router, protectedApi fiber.Router, htmxController *controllers.HTMXController) {
+	// Public HTMX routes (no authentication required)
+	publicApi.Get("/framework-options", controllers.GetFrameworkOptionsHTML)
+	publicApi.Get("/popular-apis", htmxController.GetPopularAPIsHTML)
+	publicApi.Get("/theme-toggle", controllers.GetThemeToggleHTML)
+	publicApi.Post("/theme-toggle", controllers.HandleThemeToggle)
 
-	api.Get("/framework-options", controllers.GetFrameworkOptionsHTML) // Assuming this is a static method or needs to be on controller
-	api.Get("/sdk-history", htmxController.GetSDKHistoryHTML)
-	api.Delete("/sdks/:id", htmxController.DeleteSDKHTML)       // For deleting SDK from history view
-	api.Get("/popular-apis", htmxController.GetPopularAPIsHTML) // Assuming this is a static method or needs to be on controller
-
-	// Placeholders for other HTMX interactions if needed
-	api.Get("/generation-status/:taskID", controllers.GetGenerationStatusHTML)
-	api.Post("/cancel-generation/:taskID", controllers.CancelGenerationTaskHTML)
-	api.Get("/user-profile-card", htmxController.GetUserProfileCardHTML)
-	api.Get("/theme-toggle", controllers.GetThemeToggleHTML)
-	api.Post("/theme-toggle", controllers.HandleThemeToggle)
+	// Protected HTMX routes (authentication required)
+	protectedApi.Post("/collections", htmxController.CreateCollectionHTML)
+	protectedApi.Post("/collections/from-url", htmxController.CreateCollectionFromURLHTML)
+	protectedApi.Post("/collections/from-public-api", htmxController.CreateCollectionFromPublicAPIHTML)
+	protectedApi.Get("/sdk-history", htmxController.GetSDKHistoryHTML)
+	protectedApi.Delete("/sdks/:id", htmxController.DeleteSDKHTML)
+	protectedApi.Get("/generation-status/:taskID", controllers.GetGenerationStatusHTML)
+	protectedApi.Post("/cancel-generation/:taskID", controllers.CancelGenerationTaskHTML)
+	protectedApi.Get("/user-profile-card", htmxController.GetUserProfileCardHTML)
 }
 
 // setupAuthRoutes configures authentication endpoints

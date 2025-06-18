@@ -26,3 +26,11 @@ type PlatformSettingsRequest map[string]interface{}
 type MaintenanceModeRequest struct {
 	Enable bool `json:"enable"`
 }
+
+// MCPGenerationRequest defines the parameters for generating an MCP server.
+type MCPGenerationRequest struct {
+	CollectionID string `json:"collectionId" validate:"required"`
+	Transport    string `json:"transport" validate:"required"` // e.g., "http", "grpc"
+	Port         int    `json:"port" validate:"required,gte=1,lte=65535"`
+	// Add any other MCP-specific options here
+}

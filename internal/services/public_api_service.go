@@ -1,12 +1,13 @@
 package services
 
 import (
-	"context"
+	"context" // Added import
 	"fmt"
 	"strings"
 
-	"github.com/AkashKesav/API2SDK/internal/models"
-	"github.com/AkashKesav/API2SDK/internal/repositories"
+	"github.com/AkashKesav/API2SDK/internal/models" // Corrected path
+	"github.com/AkashKesav/API2SDK/internal/repositories" // Corrected path
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -91,20 +92,31 @@ func (s *PublicAPIService) GetPublicAPIByPostmanID(postmanID string) (*models.Pu
 	return nil, fmt.Errorf("public API with PostmanID '%s' not found in the predefined list", postmanID)
 }
 
-// GetPublicAPIByID retrieves a specific public API entry by its actual DB ID (if applicable)
-// This is distinct from GetPublicAPIByPostmanID
+// GetPublicAPIByID retrieves a specific public API entry by its actual DB ID or PostmanID.
 func (s *PublicAPIService) GetPublicAPIByID(id string) (*models.PublicAPI, error) {
-	// This method would primarily interact with s.repository if public APIs are stored in DB
-	// For now, as GetPublicAPIByPostmanID is used for the static list,
-	// this might return an error or be a TODO if DB persistence for public APIs isn't fully implemented.
-	s.logger.Info("GetPublicAPIByID called. If this ID is not a PostmanID for the static list, it might not be found.", zap.String("id", id))
-	// Attempt to find by PostmanID first, as controller uses this for "popular"
+	s.logger.Info("Attempting to retrieve public API by ID", zap.String("id", id))
+
+	// First, try to find the API by PostmanID from the predefined list
 	if api, err := s.GetPublicAPIByPostmanID(id); err == nil {
+		s.logger.Info("Found public API in predefined list by PostmanID", zap.String("id", id))
 		return api, nil
 	}
-	// If not found by PostmanID, and if a repository is used for other APIs:
-	// return s.repository.GetByID(id)
-	return nil, fmt.Errorf("public API with ID '%s' not found. Note: static list uses PostmanID.", id)
+
+	// If not found in the predefined list, try to get it from the repository by its database ID
+	s.logger.Info("Public API not found in predefined list, attempting to fetch from repository", zap.String("id", id))
+	objectID, err := primitive.ObjectIDFromHex(id) // Convert string to ObjectID
+	if err != nil {
+		s.logger.Error("Failed to convert ID string to ObjectID", zap.String("id", id), zap.Error(err))
+		return nil, fmt.Errorf("invalid ID format: '%s'", id)
+	}
+	api, err := s.repository.GetByID(objectID) // Use ObjectID
+	if err != nil {
+		s.logger.Error("Failed to get public API from repository", zap.String("id", id), zap.Error(err))
+		return nil, fmt.Errorf("public API with ID '%s' not found", id)
+	}
+
+	s.logger.Info("Successfully retrieved public API from repository", zap.String("id", id))
+	return api, nil
 }
 
 // CreatePublicAPI creates a new public API entry in the repository.

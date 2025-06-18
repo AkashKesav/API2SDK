@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -15,12 +16,15 @@ import (
 type PostmanClient struct {
 	baseURL string
 	client  *http.Client
+	apiKey  string
 }
 
 // NewPostmanClient creates a new Postman API client
 func NewPostmanClient() *PostmanClient {
+	apiKey := os.Getenv("POSTMAN_API_KEY")
 	return &PostmanClient{
 		baseURL: "https://api.getpostman.com",
+		apiKey:  apiKey,
 		client: &http.Client{
 			Timeout: 150 * time.Second, // Increased timeout to be less than server timeout (180s)
 			Transport: &http.Transport{
@@ -121,6 +125,40 @@ func (pc *PostmanClient) GetCollectionByID(collectionID string) (*models.Postman
 	}
 
 	return &result, nil
+}
+
+// GetRawCollectionJSONByID fetches the raw JSON of a specific collection by ID from Postman API
+func (pc *PostmanClient) GetRawCollectionJSONByID(collectionID string) (string, error) {
+	endpoint := fmt.Sprintf("%s/collections/%s", pc.baseURL, collectionID)
+
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request for raw collection: %w", err)
+	}
+
+	// Add headers
+	req.Header.Set("User-Agent", "API2SDK/1.0")
+	req.Header.Set("Accept", "application/json")
+	if pc.apiKey != "" {
+		req.Header.Set("X-Api-Key", pc.apiKey)
+	}
+
+	resp, err := pc.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request for raw collection: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body for raw collection: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API request for raw collection failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return string(bodyBytes), nil
 }
 
 // ImportCollectionFromURL fetches and converts a Postman collection from URL
@@ -345,7 +383,8 @@ func (pc *PostmanClient) createAPIEndpoints(api *models.PublicAPI) []map[string]
 	}
 }
 
-// ExtractCollectionIDFromURL extracts collection ID from various Postman URL formats
+// ExtractCollectionIDFromURL extracts the collection ID from a Postman collection URL.
+// Handles various URL formats used by Postman.
 func (pc *PostmanClient) ExtractCollectionIDFromURL(postmanURL string) (string, error) {
 	parsedURL, err := url.Parse(postmanURL)
 	if err != nil {

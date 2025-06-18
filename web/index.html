@@ -128,520 +128,212 @@
 
     </script>
 </head>
-<body>
-    <!-- Header -->
-    <header class="header">
-        <nav class="navbar">
-            <div class="nav-brand">
-                <i class="fas fa-code"></i>
-                <span>API2SDK</span>
+<body class="preload"> <!-- Assuming preload class is for a purpose, keeping it -->
+
+    <header>
+        <div class="container">
+            <div class="logo">
+                <a href="/">API2SDK</a>
             </div>
-            <div class="nav-links">
-                <a href="#home" class="nav-link active">Home</a>
-                <a href="#features" class="nav-link">Features</a>
-                <a href="#public-apis" class="nav-link">Public APIs</a>
-                <a href="#generator" class="nav-link">Generator</a>
-                <a href="#history" class="nav-link">History</a>
-                <div class="auth-links" id="auth-links">
-                    <a href="/login" class="btn btn-secondary btn-sm">Login</a>
-                    <a href="/register" class="btn btn-primary btn-sm">Sign Up</a>
-                </div>
-                <div class="user-menu" id="user-menu" style="display: none;">
-                    <div class="user-info">
-                        <span id="user-name">Welcome!</span>
-                        <div class="user-dropdown">
-                            <button class="user-avatar" onclick="toggleUserMenu()">
-                                <i class="fas fa-user-circle"></i>
-                            </button>
-                            <div class="dropdown-menu" id="dropdown-menu">
-                                <a href="#profile" onclick="showProfile()">
-                                    <i class="fas fa-user"></i> Profile
-                                </a>
-                                <a href="#settings" onclick="showSettings()">
-                                    <i class="fas fa-cog"></i> Settings
-                                </a>
-                                <hr>
-                                <a href="#logout" onclick="logout()">
-                                    <i class="fas fa-sign-out-alt"></i> Logout
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <nav>
+                <ul>
+                    <li><a href="/#api-generator">Generator</a></li>
+                    <li><a href="/#api-listing">Public APIs</a></li>
+                    <li><a href="/#why-choose-us">Features</a></li>
+                    <!-- Add login/register or dashboard links here based on auth state -->
+                </ul>
+            </nav>
+            <div class="auth-links">
+                <a href="/login.html" class="btn btn-outline">Login</a>
+                <a href="/register.html" class="btn btn-primary">Sign Up</a>
             </div>
-        </nav>
+            <button class="mobile-nav-toggle" aria-label="toggle navigation">
+                <span class="hamburger"></span>
+            </button>
+        </div>
     </header>
 
-    <!-- Hero Section -->
-    <section id="home" class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">
-                Convert Postman Collections to 
-                <span class="gradient-text">Production-Ready SDKs</span>
-            </h1>
-            <p class="hero-description">
-                Transform your Postman collections into type-safe, production-ready SDKs for JavaScript, Python, Go, Java, and PHP. 
-                Browse our curated collection of popular APIs or upload your own Postman collections.
-            </p>
-            <div class="hero-buttons">
-                <button class="btn btn-primary" 
-                        onclick="document.getElementById('public-apis').scrollIntoView({behavior: 'smooth'})">
-                    <i class="fas fa-search"></i>
-                    Browse APIs
-                </button>
-                <button class="btn btn-secondary" 
-                        onclick="document.getElementById('generator').scrollIntoView({behavior: 'smooth'})">
-                    <i class="fas fa-rocket"></i>
-                    Start Generating
-                </button>
-            </div>
-        </div>
-        <div class="hero-visual">
-            <div class="code-preview">
-                <div class="code-header">
-                    <div class="code-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                    <span class="code-title">Generated SDK</span>
-                </div>
-                <div class="code-content">
-                    <pre><code class="language-javascript">const client = new APIClient({
-  baseURL: 'https://api.example.com',
-  token: 'your-api-token'
-});
-
-const response = await client.getUsers({
-  page: 1,
-  limit: 10
-});
-
-console.log(response.data);</code></pre>
+    <main>
+        <section class="hero">
+            <div class="container text-center">
+                <h1 class="hero-title">Transform APIs into SDKs & MCPs, Instantly</h1>
+                <p class="hero-subtitle lead">
+                    Streamline your development workflow. Upload your Postman Collection or OpenAPI spec and generate robust SDKs or Model Context Protocol output in minutes.
+                </p>
+                <div class="hero-cta">
+                    <a href="#api-generator" class="btn btn-primary btn-lg">Start Generating</a>
+                    <a href="#api-listing" class="btn btn-outline btn-lg">Explore Public APIs</a>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Features Section -->
-    <section id="features" class="features">
-        <div class="container">
-            <h2 class="section-title">Why Choose API2SDK?</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-upload"></i>
-                    </div>
-                    <h3>Easy Upload</h3>
-                    <p>Simply upload your Postman collection JSON file or paste the content directly</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-code-branch"></i>
-                    </div>
-                    <h3>Multiple Languages</h3>
-                    <p>Generate SDKs in JavaScript, Python, Go, Java, and PHP with different frameworks</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-globe"></i>
-                    </div>
-                    <h3>Public API Library</h3>
-                    <p>Browse and use popular public APIs from our curated collection</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>Type Safe</h3>
-                    <p>Generated SDKs include proper type definitions and error handling</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-download"></i>
-                    </div>
-                    <h3>Instant Download</h3>
-                    <p>Download your generated SDK immediately as a ready-to-use file</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <i class="fas fa-free-code-camp"></i>
-                    </div>
-                    <h3>100% Free</h3>
-                    <p>Completely free and open-source, no limits or hidden costs</p>
-                </div>
-            </div>
-        </div>
-    </section>
+        <!-- Generator Section -->
+        <section id="api-generator" class="generator-section section-padding">
+            <div class="container">
+                <h2>API to SDK/MCP Generator</h2>
+                <p class="lead">Easily generate SDKs or MCP output from your API specifications.</p>
+                <div id="generator-wizard">
+                    <!-- Step 1: Upload API Specification & Choose Generation Type -->
+                    <div id="step-1" class="generator-step current-step">
+                        <h3>Step 1: Provide API Specification & Choose Type</h3>
+                        
+                        <!-- Existing API Specification Input (assuming it's here) -->
+                        <!-- For example: -->
+                        <div class="form-group">
+                            <label>API Specification Input Type:</label>
+                            <!-- ... radio buttons for Postman/OpenAPI URL/File ... -->
+                        </div>
+                        <div class="form-group">
+                            <label for="api-file-upload">Upload File:</label>
+                            <input type="file" id="api-file-upload" name="api_file" class="form-control">
+                            <!-- Or URL input, etc. -->
+                        </div>
+                        <!-- ... existing forms for openapi-form and postman-form ... -->
 
-    <!-- Public APIs Section -->
-    <section id="public-apis" class="public-apis">
-        <div class="container">
-            <h2 class="section-title">Browse Popular APIs</h2>
-            <p class="section-description">Discover and use popular public APIs with ready-to-import Postman collections</p>
-            
-            <!-- Search and Filter -->
-            <div class="api-search">
-                <div class="search-box">
-                    <input type="text" 
-                           id="api-search" 
-                           placeholder="Search APIs..." 
-                           hx-get="/api/v1/public-apis/popular"
-                           hx-trigger="keyup changed delay:500ms"
-                           hx-target="#api-grid"
-                           hx-swap="innerHTML">
-                    <i class="fas fa-search"></i>
-                </div>
-                <div class="filter-categories">
-                    <select id="category-filter" 
-                            hx-get="/api/v1/public-apis/popular"
-                            hx-trigger="change"
-                            hx-target="#api-grid"
-                            hx-swap="innerHTML">
-                        <option value="">All Categories</option>
-                        <option value="Testing">Testing</option>
-                        <option value="Weather">Weather</option>
-                        <option value="Developer Tools">Developer Tools</option>
-                        <option value="Geography">Geography</option>
-                        <option value="Fun">Fun</option>
-                        <option value="Payments">Payments</option>
-                        <option value="Space">Space</option>
-                    </select>
-                </div>
-            </div>
 
-            <!-- API Grid -->
-            <div class="api-grid" 
-                 id="api-grid"
-                 hx-get="/api/v1/htmx/popular-apis"
-                 hx-trigger="load">
-                <div class="api-placeholder">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading popular APIs...</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Generator Section -->
-    <section id="generator" class="generator">
-        <div class="container">
-            <h2 class="section-title">Generate Your SDK</h2>
-            
-            <!-- Step 1: Choose Source -->
-            <div class="generator-step" id="step-source">
-                <h3>Step 1: Choose Your Source</h3>
-                <div class="source-options">
-                    <button class="source-option active" id="upload-option" 
-                            _="on click 
-                               remove .active from .source-option then add .active to me
-                               hide #api-select-panel then hide #url-import-panel then show #upload-panel">
-                        <i class="fas fa-upload"></i>
-                        <span>Upload Collection</span>
-                        <p>Upload your own Postman collection</p>
-                    </button>
-                    <button class="source-option" id="api-option"
-                            _="on click 
-                               remove .active from .source-option then add .active to me
-                               hide #upload-panel then hide #url-import-panel then show #api-select-panel">
-                        <i class="fas fa-globe"></i>
-                        <span>Use Public API</span>
-                        <p>Select from popular public APIs</p>
-                    </button>
-                    <button class="source-option" id="url-import-option"
-                            _="on click 
-                               remove .active from .source-option then add .active to me
-                               hide #upload-panel then hide #api-select-panel then show #url-import-panel">
-                        <i class="fas fa-link"></i>
-                        <span>Import by URL</span>
-                        <p>Import Postman collection from URL</p>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Upload Panel -->
-            <div class="source-panel" id="upload-panel">
-                <h4>Upload Postman Collection</h4>
-                <form hx-post="/api/v1/htmx/collections" 
-                      hx-target="#upload-result"
-                      hx-swap="innerHTML"
-                      hx-indicator="#upload-spinner"
-                      enctype="multipart/form-data">
-                    
-                    <div class="upload-methods">
-                        <div class="upload-method active" id="file-upload">
-                            <h5>Upload File</h5>
-                            <div class="upload-area" 
-                                 _="on dragover halt the event then add .dragover to me
-                                    on dragleave remove .dragover from me
-                                    on drop halt the event then remove .dragover from me then trigger fileSelected">
-                                <div class="upload-content">
-                                    <i class="fas fa-cloud-upload-alt"></i>
-                                    <p>Drag and drop your Postman collection JSON file here</p>
-                                    <p class="upload-subtext">or click to browse files</p>
-                                </div>
-                                <input type="file" 
-                                       name="file" 
-                                       id="fileInput" 
-                                       accept=".json" 
-                                       _="on change trigger fileSelected">
+                        <!-- Add Generation Type Selection -->
+                        <div class="form-group" id="generation-type-selector">
+                            <h4>Select Generation Type</h4>
+                            <div class="radio-group" style="display: flex; gap: 20px; margin-top: 10px;">
+                                <label for="gen-type-sdk" class="radio-label" style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                    <input type="radio" id="gen-type-sdk" name="generation_type" value="sdk" checked>
+                                    Generate SDK
+                                </label>
+                                <label for="gen-type-mcp" class="radio-label" style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                                    <input type="radio" id="gen-type-mcp" name="generation_type" value="mcp">
+                                    Generate MCP Output
+                                </label>
                             </div>
                         </div>
-                        
-                        <div class="upload-method" id="text-upload">
-                            <h5>Paste JSON</h5>
-                            <textarea name="postman_data" 
-                                      id="jsonInput" 
-                                      placeholder="Paste your Postman collection JSON here..."
-                                      rows="8"
-                                      _="on input 
-                                         if my value's length > 10 
-                                           then remove @disabled from #continueBtn 
-                                           else add @disabled to #continueBtn"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="upload-tabs">
-                        <button type="button" class="tab-btn active" 
-                                _="on click 
-                                   remove .active from .tab-btn then add .active to me
-                                   remove .active from .upload-method then add .active to #file-upload">
-                            <i class="fas fa-file-upload"></i> Upload File
-                        </button>
-                        <button type="button" class="tab-btn" 
-                                _="on click 
-                                   remove .active from .tab-btn then add .active to me
-                                   remove .active from .upload-method then add .active to #text-upload">
-                            <i class="fas fa-paste"></i> Paste JSON
-                        </button>
-                    </div>
-                    
-                    <input type="hidden" name="name" value="Imported Collection">
-                    <input type="hidden" name="description" value="Collection imported from web interface">
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="continueBtn" disabled>
-                            <span id="upload-spinner" class="htmx-indicator">
-                                <i class="fas fa-spinner fa-spin"></i>
-                            </span>
-                            <i class="fas fa-arrow-right"></i>
-                            Continue to Configuration
-                        </button>
-                    </div>
-                </form>
-                
-                <div id="upload-result"></div>
-            </div>
 
-            <!-- API Selection Panel -->
-            <div class="source-panel" id="api-select-panel" style="display: none;">
-                <h4>Select Public API</h4>
-                <div class="api-selection" 
-                     hx-get="/api/v1/public-apis/popular"
-                     hx-target="this"
-                     hx-swap="innerHTML"
-                     hx-trigger="load">
-                    <div class="api-placeholder">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Loading APIs...</p>
+                        <button type="button" onclick="goToStep(2)" class="btn btn-primary" style="margin-top: 20px;">Next Step</button>
+                    </div>
+
+                    <!-- Step 2: Configure Generation -->
+                    <div id="step-2" class="generator-step" style="display: none;">
+                        <!-- Content will be dynamic based on JS -->
+                        <h2>Step 2: Configure Generation</h2>
+
+                        <!-- SDK Options (visible if SDK is chosen) -->
+                        <div id="sdk-options">
+                            <h4>Select Language/Framework for SDK</h4>
+                            <div class="form-group">
+                                <label>Select Target Languages/Frameworks:</label>
+                                <div id="language-options" class="language-options-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
+                                    <!-- Example: <label><input type="checkbox" name="languages" value="python"> Python</label> -->
+                                    <!-- This should be populated dynamically or be pre-filled -->
+                                    <label><input type="checkbox" name="languages" value="python"> Python</label>
+                                    <label><input type="checkbox" name="languages" value="javascript"> JavaScript</label>
+                                    <label><input type="checkbox" name="languages" value="java"> Java</label>
+                                    <label><input type="checkbox" name="languages" value="go"> Go</label>
+                                    <label><input type="checkbox" name="languages" value="csharp"> C#</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MCP Options (visible if MCP is chosen) -->
+                        <div id="mcp-options" style="display: none;">
+                            <h4>MCP Configuration</h4>
+                            <p>Configure options for MCP generation.</p>
+                            <div class="form-group">
+                                <label for="mcp-output-format">Output Format:</label>
+                                <select id="mcp-output-format" name="mcp_output_format" class="form-control">
+                                    <option value="json">JSON</option>
+                                    <option value="yaml">YAML</option>
+                                </select>
+                            </div>
+                            <!-- Add more MCP specific configuration fields here as needed -->
+                        </div>
+                        <button type="button" onclick="goToStep(1)" class="btn btn-secondary" style="margin-top: 20px; margin-right: 10px;">Previous</button>
+                        <button type="button" onclick="goToStep(3)" class="btn btn-primary" style="margin-top: 20px;">Next Step</button>
+                    </div>
+
+                    <!-- Step 3: Generate & Download -->
+                    <div id="step-3" class="generator-step" style="display: none;">
+                        <h2>Step 3: Generate and Download</h2>
+                        <div id="generation-summary-sdk" style="display: none;">
+                            <p>You are about to generate an SDK based on your selections.</p>
+                            <!-- Further summary details can be added by JS -->
+                        </div>
+                        <div id="generation-summary-mcp" style="display: none;">
+                            <p>You are about to generate MCP output based on your selections.</p>
+                            <!-- Further summary details can be added by JS -->
+                        </div>
+                        
+                        <!-- This button will trigger the actual generation via JavaScript -->
+                        <button id="generate-button" type="button" class="btn btn-success btn-lg" style="margin-top: 20px;">Generate</button>
+                        
+                        <div id="loading-indicator" style="display:none; margin-top: 15px;">
+                            <p>Generating... Please wait. <i class="fas fa-spinner fa-spin"></i></p>
+                        </div>
+                        <div id="generation-result" style="margin-top: 20px; padding: 15px; border: 1px solid var(--border); border-radius: 4px; background-color: var(--background-alt);">
+                            <!-- Results will be loaded here -->
+                        </div>
+                        <button type="button" onclick="goToStep(2)" class="btn btn-secondary" style="margin-top: 20px;">Previous</button>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- URL Import Panel (New) -->
-            <div class="source-panel" id="url-import-panel" style="display: none;">
-                <h4>Import Postman Collection from URL</h4>
-                <form hx-post="/api/v1/htmx/collections/from-url" 
-                      hx-target="#url-import-result"
-                      hx-swap="innerHTML"
-                      hx-indicator="#url-import-spinner">
-                    
-                    <div class="form-group">
-                        <label for="postman_url">Postman Collection URL *</label>
-                        <input type="url" 
-                               name="postman_url" 
-                               id="postman_url_input" 
-                               placeholder="https://www.postman.com/collections/your-collection-id" 
-                               required
-                               _="on input if my value then remove @disabled from #importUrlBtn else add @disabled to #importUrlBtn">
-                    </div>
 
-                    <div class="form-group">
-                        <label for="collection_name_url">Collection Name (Optional)</label>
-                        <input type="text" 
-                               name="collection_name" 
-                               id="collection_name_url_input" 
-                               placeholder="My Imported API">
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" id="importUrlBtn" disabled>
-                            <span id="url-import-spinner" class="htmx-indicator">
-                                <i class="fas fa-spinner fa-spin"></i>
-                            </span>
-                            <i class="fas fa-download"></i>
-                            Import and Proceed
-                        </button>
-                    </div>
-                </form>
-                <div id="url-import-result"></div>
-            </div>
-
-            <!-- Step 1.5: OpenAPI Preview (New, Initially Hidden) -->
-            <div class="generator-step" id="step-openapi-preview" style="display: none;">
-                <h3>Step 1.5: Review OpenAPI Specification</h3>
-                <p>Your Postman collection has been converted to OpenAPI. Review the specification below.</p>
-                <div class="openapi-preview-area">
-                    <textarea id="openapi-spec-preview" rows="15" readonly></textarea>
+        <!-- API Listing Section -->
+        <section id="api-listing" class="api-list-section section-padding">
+            <div class="container">
+                <h2>Explore Public APIs</h2>
+                <p class="lead">Discover and generate clients for a curated list of public APIs.</p>
+                <div class="api-list-controls">
+                    <input type="text" id="search-api" placeholder="Search APIs by name or keyword..." class="form-control form-control-lg">
                 </div>
-                <input type="hidden" id="openapi-collection-id">
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" 
-                            _="on click 
-                               hide #step-openapi-preview then show #step-source
-                               call document.getElementById('upload-panel-form').reset() // Assuming your upload form has id 'upload-panel-form'
-                               call document.getElementById('url-import-panel-form').reset() // Assuming your url import form has id 'url-import-panel-form'
-                               ">
-                        <i class="fas fa-arrow-left"></i> Back to Source Selection
-                    </button>
-                    <button type="button" class="btn btn-primary" id="proceedToConfigBtn"
-                            _="on click 
-                               hide #step-openapi-preview 
-                               then set document.getElementById('collection-id').value to document.getElementById('openapi-collection-id').value
-                               then show #step-config">
-                        <i class="fas fa-arrow-right"></i>
-                        Proceed to SDK Configuration
-                    </button>
+                <div class="api-cards-container" style="margin-top: 2rem;">
+                    <div hx-get="/htmx/public-apis" hx-trigger="load" class="api-cards">
+                        <p>Loading available APIs...</p> <!-- Placeholder -->
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <!-- Step 2: Configure SDK (Initially Hidden) -->
-            <div class="generator-step" id="step-config" style="display: none;">
-                <h3>Step 2: Configure SDK Settings</h3>
-                <form hx-post="/api/v1/generate/sdk" 
-                      hx-target="#generation-result"
-                      hx-swap="innerHTML"
-                      hx-indicator="#generate-spinner">
-                    
-                    <input type="hidden" name="collection_id" id="collection-id">
-                    
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="language">Programming Language *</label>
-                            <select name="language" id="language" required
-                                    hx-get="/api/v1/htmx/framework-options"
-                                    hx-trigger="change"
-                                    hx-target="#framework-select"
-                                    hx-swap="innerHTML"
-                                    hx-include="this">
-                                <option value="">Select Language</option>
-                                <option value="javascript">JavaScript</option>
-                                <option value="typescript">TypeScript</option>
-                                <option value="python">Python</option>
-                                <option value="go">Go</option>
-                                <option value="java">Java</option>
-                                <option value="swift">Swift</option>
-                                <option value="kotlin">Kotlin</option>
-                                <option value="csharp">C#</option>
-                                <option value="php">PHP</option>
-                                <option value="ruby">Ruby</option>
-                            </select>
+        <!-- Why Choose Us Section -->
+        <section id="why-choose-us" class="features-section section-padding bg-light"> <!-- Added bg-light for visual separation -->
+            <div class="container">
+                <div class="text-center mb-5">
+                    <h2 class="section-title">Why API2SDK?</h2>
+                    <p class="lead">Everything you need to accelerate your API integration.</p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="fas fa-bolt fa-2x"></i> <!-- Updated icon example -->
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="framework">Framework</label>
-                            <select name="framework" id="framework-select">
-                                <option value="">Auto-detect</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="package_name">Package Name *</label>
-                            <input type="text" 
-                                   name="package_name" 
-                                   id="package_name" 
-                                   placeholder="my-api-sdk" 
-                                   required
-                                   _="on input if my value then remove @disabled from #generateBtn">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="client_name">Client Class Name</label>
-                            <input type="text" 
-                                   name="client_name" 
-                                   id="client_name" 
-                                   placeholder="APIClient">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="base_url">Base URL</label>
-                            <input type="url" 
-                                   name="base_url" 
-                                   id="base_url" 
-                                   placeholder="https://api.example.com">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="auth_method">Authentication Method</label>
-                            <select name="auth_method" id="auth_method">
-                                <option value="">Auto-detect</option>
-                                <option value="bearer">Bearer Token</option>
-                                <option value="apikey">API Key</option>
-                                <option value="basic">Basic Auth</option>
-                                <option value="none">None</option>
-                            </select>
-                        </div>
+                        <h3>Rapid Generation</h3>
+                        <p>Go from API specification to functional SDK or MCP output in minutes, not days. Save valuable development time.</p>
                     </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" 
-                                _="on click hide #step-config then show #step-source">
-                            <i class="fas fa-arrow-left"></i> Back
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="generateBtn" disabled>
-                            <span id="generate-spinner" class="htmx-indicator">
-                                <i class="fas fa-spinner fa-spin"></i>
-                            </span>
-                            <i class="fas fa-cog"></i>
-                            Generate SDK
-                        </button>
+                    <div class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="fas fa-cogs fa-2x"></i> <!-- Updated icon example -->
+                        </div>
+                        <h3>Versatile & Flexible</h3>
+                        <p>Supports Postman Collections and OpenAPI (Swagger) specifications. Choose between SDKs for popular languages or structured MCP output.</p>
                     </div>
-                </form>
-                
-                <div id="generation-result"></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- History Section -->
-    <section id="history" class="history">
-        <div class="container">
-            <h2 class="section-title">Generation History</h2>
-            <div class="history-controls">
-                <button class="btn btn-secondary" 
-                        hx-get="/api/v1/sdks"
-                        hx-target="#history-list"
-                        hx-indicator="#history-spinner">
-                    <span id="history-spinner" class="htmx-indicator">
-                        <i class="fas fa-spinner fa-spin"></i>
-                    </span>
-                    <i class="fas fa-refresh"></i>
-                    Refresh History
-                </button>
-            </div>
-            <div class="history-list" id="history-list"
-                 hx-get="/api/v1/sdks"
-                 hx-trigger="load">
-                <div class="history-placeholder">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading history...</p>
+                    <div class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="fas fa-code-branch fa-2x"></i> <!-- Updated icon example -->
+                        </div>
+                        <h3>Multi-Language SDKs</h3>
+                        <p>Generate client SDKs in a variety of languages like Python, JavaScript, Java, Go, C#, and more to come.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="fas fa-puzzle-piece fa-2x"></i> <!-- Updated icon example -->
+                        </div>
+                        <h3>MCP for Interoperability</h3>
+                        <p>Produce Model Context Protocol output for standardized API interaction and tooling integration.</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <!-- Footer -->
-    <footer class="footer">
+    <footer class="site-footer section-padding">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
@@ -692,603 +384,228 @@ console.log(response.data);</code></pre>
 
     <!-- HTMX Configuration and Event Handlers -->
     <script>
-        // Configure HTMX with timeout settings
-        htmx.config.timeout = 120000; // 2 minutes timeout for requests
-        htmx.config.historyCacheSize = 10;
-        htmx.config.refreshOnHistoryMiss = true;
-        
-        // Configure HTMX
-        document.body.addEventListener('htmx:configRequest', (evt) => {
-            // Add authentication header to ALL requests
-            const token = localStorage.getItem('access_token');
-            if (token) {
-                evt.detail.headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            // Handle SDK generation form - convert to JSON
-            if (evt.detail.path && evt.detail.path.includes('/generate/sdk')) {
-                console.log('Configuring SDK generation request');
-                evt.detail.headers['Content-Type'] = 'application/json';
-                
-                // Get form element
-                const form = evt.detail.elt;
-                console.log('Form element:', form);
-                
-                // Convert form data to JSON
-                const formData = new FormData(form);
-                const jsonData = {};
-                for (let [key, value] of formData.entries()) {
-                    jsonData[key] = value;
-                    console.log(`Form field: ${key} = ${value}`);
-                }
-                
-                console.log('JSON data:', jsonData);
-                const jsonString = JSON.stringify(jsonData);
-                console.log('JSON string:', jsonString);
-                
-                // Use XMLHttpRequest override approach for better compatibility
-                evt.preventDefault();
-                
-                // Create custom request
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', evt.detail.path, true);
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                // Add auth header to custom XHR request too
-                if (token) {
-                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-                }
-                
-                // Set up response handler
-                xhr.onload = function() {
-                    console.log('Response status:', xhr.status);
-                    console.log('Response text:', xhr.responseText);
-                    
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            if (response.success && response.data) {
-                                const sdk = response.data;
-                                const target = document.getElementById('generation-result');
-                                target.innerHTML = `
-                                    <div class="generation-success">
-                                        <div class="success-icon">
-                                            <i class="fas fa-check-circle"></i>
-                                        </div>
-                                        <h3>SDK Generated Successfully!</h3>
-                                        <div class="sdk-details">
-                                            <div class="detail-item">
-                                                <span class="label">Language:</span>
-                                                <span class="value">${sdk.language}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="label">Package:</span>
-                                                <span class="value">${sdk.package_name}</span>
-                                            </div>
-                                            <div class="detail-item">
-                                                <span class="label">Status:</span>
-                                                <span class="value">${sdk.status}</span>
-                                            </div>
-                                        </div>
-                                        <div class="action-buttons">
-                                            <a href="/api/v1/sdks/${sdk.id}/download" 
-                                               class="btn btn-primary" download>
-                                                <i class="fas fa-download"></i> Download SDK
-                                            </a>
-                                            <button class="btn btn-secondary" 
-                                                    onclick="resetGeneratorForm()">
-                                                <i class="fas fa-plus"></i> Generate Another
-                                            </button>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse response:', e);
-                        }
-                    } else {
-                        console.error('Request failed with status:', xhr.status);
-                        const target = document.getElementById('generation-result');
-                        target.innerHTML = `
-                            <div class="alert alert-error">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <strong>Error:</strong> Request failed with status ${xhr.status}
-                            </div>
-                        `;
-                    }
-                };
-                
-                xhr.onerror = function() {
-                    console.error('Request failed');
-                    const target = document.getElementById('generation-result');
-                    target.innerHTML = `
-                        <div class="alert alert-error">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <strong>Error:</strong> Network error occurred
-                        </div>
-                    `;
-                };
-                
-                // Send the request
-                xhr.send(jsonString);
-                
-                return false; // Prevent default HTMX handling
-            }
-            // For collection creation forms (file uploads), keep multipart/form-data
-            else if (evt.detail.elt.tagName === 'FORM' && evt.detail.elt.enctype !== 'multipart/form-data') {
-                evt.detail.headers['Content-Type'] = 'application/json';
-            }
-        });
+        // --- Revamped Generator Logic ---
+        let currentStep = 1;
+        let selectedGenerationType = 'sdk'; // Default to SDK
 
-        // Handle successful requests
-        document.body.addEventListener('htmx:afterRequest', (evt) => {
-            if (evt.detail.xhr.status === 200 || evt.detail.xhr.status === 201) {
-                const url = evt.detail.requestConfig.url || '';
-                const responseText = evt.detail.xhr.responseText;
-                
-                // Check if response is JSON
-                let isJSON = false;
-                let response = null;
-                try {
-                    response = JSON.parse(responseText);
-                    isJSON = true;
-                } catch (e) {
-                    // Response is HTML, let HTMX handle it normally
-                    console.log('Response is HTML, letting HTMX handle it');
-                    return;
-                }
-                
-                // Only handle JSON responses with custom logic
-                if (isJSON) {
-                    if (url.includes('/collections')) {
-                        // Collection uploaded successfully
-                        if (response.success && response.data && response.data.id) {
-                            document.getElementById('collection-id').value = response.data.id;
-                            document.getElementById('step-source').style.display = 'none';
-                            document.getElementById('step-config').style.display = 'block';
-                            
-                            // Show success message
-                            evt.detail.target.innerHTML = `
-                                <div class="alert alert-success">
-                                    <i class="fas fa-check-circle"></i>
-                                    Collection uploaded successfully! Continue to configuration.
-                                </div>
-                            `;
-                        }
-                    } else if (url.includes('/api/v1/htmx/collections/from-url')) { // Handle URL import response
-                        if (response.success && response.data) {
-                            document.getElementById('openapi-collection-id').value = response.data.collection_id;
-                            document.getElementById('openapi-spec-preview').value = response.data.openapi_spec;
-                            document.getElementById('step-source').style.display = 'none';
-                            document.getElementById('url-import-panel').style.display = 'none'; // Hide the import panel
-                            document.getElementById('step-openapi-preview').style.display = 'block';
-                            
-                            // Show success message in the result area for URL import
-                            evt.detail.target.innerHTML = `
-                                <div class="alert alert-success">
-                                    <i class="fas fa-check-circle"></i>
-                                    Collection imported and converted to OpenAPI successfully!
-                                </div>
-                            `;
-                        }
-                    } else if (url.includes('/api/v1/htmx/collections/from-public-api')) { // Handle Public API import response
-                        if (response.success && response.data) {
-                            document.getElementById('openapi-collection-id').value = response.data.collection_id;
-                            document.getElementById('openapi-spec-preview').value = response.data.openapi_spec;
-                            document.getElementById('step-source').style.display = 'none';
-                            document.getElementById('public-api-panel').style.display = 'none'; // Hide the public API panel
-                            document.getElementById('step-openapi-preview').style.display = 'block';
-                            
-                            // Show success message in the result area for public API import
-                            evt.detail.target.innerHTML = `
-                                <div class="alert alert-success">
-                                    <i class="fas fa-check-circle"></i>
-                                    Public API imported and converted to OpenAPI successfully!
-                                </div>
-                            `;
-                        }
-                    } else if (url.includes('/generate/sdk')) {
-                        // SDK generated successfully
-                        if (response.success && response.data) {
-                            const sdk = response.data;
-                            evt.detail.target.innerHTML = `
-                                <div class="generation-success">
-                                    <div class="success-icon">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                    <h3>SDK Generated Successfully!</h3>
-                                    <div class="sdk-details">
-                                        <div class="detail-item">
-                                            <span class="label">Language:</span>
-                                            <span class="value">${sdk.language}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">Package:</span>
-                                            <span class="value">${sdk.package_name}</span>
-                                        </div>
-                                        <div class="detail-item">
-                                            <span class="label">Status:</span>
-                                            <span class="value">${sdk.status}</span>
-                                        </div>
-                                    </div>
-                                    <div class="action-buttons">
-                                        <a href="/api/v1/sdks/${sdk.id}/download" 
-                                           class="btn btn-primary" download>
-                                            <i class="fas fa-download"></i> Download SDK
-                                        </a>
-                                        <button class="btn btn-secondary" 
-                                                onclick="resetGeneratorForm()">
-                                            <i class="fas fa-plus"></i> Generate Another
-                                        </button>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    } else if (url.includes('/public-apis/popular')) {
-                        // Handle popular APIs response
-                        handlePopularAPIsResponse(response, evt.detail.target);
-                    }
-                }
-            }
-        });
-
-        // Handle errors and timeouts
-        document.body.addEventListener('htmx:responseError', (evt) => {
-            let errorMessage = 'An error occurred';
-            let isTimeout = false;
-            
-            // Check if it's a timeout error
-            if (evt.detail.xhr.status === 0 || evt.detail.xhr.status === 408) {
-                isTimeout = true;
-                errorMessage = 'Request timeout - the operation is taking longer than expected. Please try again with a smaller collection or check your connection.';
-            } else {
-                try {
-                    const errorData = JSON.parse(evt.detail.xhr.responseText);
-                    errorMessage = errorData.message || errorMessage;
-                    
-                    // Check for timeout in error message
-                    if (errorMessage.toLowerCase().includes('timeout')) {
-                        isTimeout = true;
-                    }
-                } catch (e) {
-                    errorMessage = `Server error occurred (${evt.detail.xhr.status})`;
-                }
-            }
-            
-            evt.detail.target.innerHTML = `
-                <div class="alert alert-error">
-                    <i class="fas fa-${isTimeout ? 'clock' : 'exclamation-circle'}"></i>
-                    <strong>${isTimeout ? 'Timeout Error:' : 'Error:'}</strong> ${errorMessage}
-                    ${isTimeout ? `
-                        <div style="margin-top: 10px;">
-                            <button class="btn btn-secondary btn-sm" onclick="retryLastRequest(this)">
-                                <i class="fas fa-redo"></i> Retry Request
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        });
-
-        // Handle timeout specifically
-        document.body.addEventListener('htmx:timeout', (evt) => {
-            evt.detail.target.innerHTML = `
-                <div class="alert alert-error">
-                    <i class="fas fa-clock"></i>
-                    <strong>Request Timeout:</strong> The operation is taking longer than expected. 
-                    This might be due to a large collection or slow network. Please try again.
-                    <div style="margin-top: 10px;">
-                        <button class="btn btn-secondary btn-sm" onclick="retryLastRequest(this)">
-                            <i class="fas fa-redo"></i> Retry Request
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-
-        // File upload handling
-        document.addEventListener('DOMContentLoaded', function() {
-            const fileInput = document.getElementById('fileInput');
-            const uploadArea = document.querySelector('.upload-area');
-            const continueBtn = document.getElementById('continueBtn');
-
-            if (uploadArea && fileInput) {
-                uploadArea.addEventListener('click', () => fileInput.click());
-
-                fileInput.addEventListener('change', function() {
-                    if (this.files.length > 0) {
-                        continueBtn.disabled = false;
-                        uploadArea.classList.add('has-file');
-                        uploadArea.querySelector('p').textContent = `Selected: ${this.files[0].name}`;
+        function setupGeneratorEventListeners() {
+            // Listener for generation type change
+            document.querySelectorAll('input[name="generation_type"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    selectedGenerationType = this.value;
+                    // When type changes, if we are on step 1, going to step 2 will auto-update.
+                    // If already on step 2, update it directly.
+                    if (currentStep === 2) {
+                        updateStep2UI();
                     }
                 });
-            }
-        });
+            });
 
-        // Handle popular APIs response
-        function handlePopularAPIsResponse(response, target) {
-            const apis = response.data || response;
-            let html = '';
-            
-            if (Array.isArray(apis) && apis.length > 0) {
-                apis.forEach(api => {
-                    html += `
-                        <div class="api-card" data-api-id="${api.postman_id || ''}">
-                            <div class="api-header">
-                                <h4>${api.name}</h4>
-                                <span class="api-category">${api.category}</span>
-                            </div>
-                            <p class="api-description">${api.description}</p>
-                            <div class="api-tags">
-                                ${api.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                            </div>
-                            <div class="api-actions">
-                                <button class="btn btn-primary btn-sm" 
-                                        onclick="selectAPI('${api.postman_id}', '${api.name}', '${api.base_url}')">
-                                    <i class="fas fa-check"></i> Select API
-                                </button>
-                                <a href="${api.postman_url}" target="_blank" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-external-link-alt"></i> View Collection
-                                </a>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                html = `
-                    <div class="api-placeholder">
-                        <i class="fas fa-search"></i>
-                        <p>No APIs found. Try different search terms.</p>
-                    </div>
-                `;
+            const generateButton = document.getElementById('generate-button');
+            if (generateButton) {
+                generateButton.addEventListener('click', handleGenerationSubmit);
             }
-            
-            target.innerHTML = html;
+
+            // Initial call to set up Step 2 UI based on default if needed,
+            // but goToStep will handle it when navigating.
+            updateStep2UI();
         }
 
-        // Select API function
-        function selectAPI(postmanId, name, baseUrl) {
-            // Show loading state
-            const button = event.target;
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing & Converting...';
-            button.disabled = true;
+        function updateStep2UI() {
+            const sdkOptionsDiv = document.getElementById('sdk-options');
+            const mcpOptionsDiv = document.getElementById('mcp-options');
+            const step2Header = document.querySelector('#step-2 h2'); // Ensure this selector is correct
 
-            // Get authorization token
-            const token = localStorage.getItem('access_token');
-            if (!token) {
-                alert('Please log in to continue');
-                button.innerHTML = originalText;
-                button.disabled = false;
+            if (!sdkOptionsDiv || !mcpOptionsDiv || !step2Header) {
+                console.error("Step 2 UI elements not found for update.");
                 return;
             }
 
-            // Import the collection first (this will now be a direct call to a new endpoint that handles import + conversion)
-            fetch('/api/v1/htmx/collections/from-public-api', { // New endpoint
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    postman_id: postmanId, // Pass Postman ID or full URL if needed by backend
-                    name: name,
-                    base_url: baseUrl // Pass base_url if you want to prefill it
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.data) {
-                    document.getElementById('openapi-collection-id').value = data.data.collection_id;
-                    document.getElementById('openapi-spec-preview').value = data.data.openapi_spec;
-                    if (baseUrl) {
-                        document.getElementById('base_url').value = baseUrl;
-                    }
-                    
-                    const packageName = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-                    document.getElementById('package_name').value = packageName + '-sdk';
-                    
-                    const clientName = name.replace(/[^a-zA-Z0-9]/g, '') + 'Client';
-                    document.getElementById('client_name').value = clientName;
-                    
-                    document.getElementById('generateBtn').disabled = false;
-                    
-                    document.getElementById('step-source').style.display = 'none';
-                    document.getElementById('api-select-panel').style.display = 'none'; // Hide API select panel
-                    document.getElementById('step-openapi-preview').style.display = 'block';
-                    
-                    showNotification('success', `Successfully imported and converted ${name} API! Review OpenAPI and configure SDK.`);
+            if (selectedGenerationType === 'sdk') {
+                sdkOptionsDiv.style.display = 'block';
+                mcpOptionsDiv.style.display = 'none';
+                step2Header.textContent = 'Step 2: Select Language/Framework for SDK';
+            } else if (selectedGenerationType === 'mcp') {
+                sdkOptionsDiv.style.display = 'none';
+                mcpOptionsDiv.style.display = 'block';
+                step2Header.textContent = 'Step 2: Configure MCP Options';
+            }
+        }
+
+        function goToStep(stepNumber) {
+            const currentStepDiv = document.getElementById('step-' + currentStep);
+            const nextStepDiv = document.getElementById('step-' + stepNumber);
+
+            if (currentStepDiv) {
+                currentStepDiv.style.display = 'none';
+                currentStepDiv.classList.remove('current-step');
+            }
+            if (nextStepDiv) {
+                nextStepDiv.style.display = 'block';
+                nextStepDiv.classList.add('current-step');
+            }
+            
+            currentStep = stepNumber;
+
+            if (stepNumber === 2) {
+                updateStep2UI(); 
+            } else if (stepNumber === 3) {
+                const sdkSummary = document.getElementById('generation-summary-sdk');
+                const mcpSummary = document.getElementById('generation-summary-mcp');
+                if (!sdkSummary || !mcpSummary) {
+                    console.error("Step 3 summary elements not found.");
+                    return;
+                }
+                if (selectedGenerationType === 'sdk') {
+                    sdkSummary.style.display = 'block';
+                    mcpSummary.style.display = 'none';
                 } else {
-                    throw new Error(data.message || 'Failed to import and convert API');
+                    sdkSummary.style.display = 'none';
+                    mcpSummary.style.display = 'block';
                 }
-            })
-            .catch(error => {
-                showNotification('error', 'Import & Conversion failed: ' + error.message);
-            })
-            .finally(() => {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
-        }
-
-        // Show notification function
-        function showNotification(type, message) {
-            const notification = document.createElement('div');
-            notification.className = `alert alert-${type}`;
-            notification.style.position = 'fixed';
-            notification.style.top = '20px';
-            notification.style.right = '20px';
-            notification.style.zIndex = '10000';
-            notification.style.maxWidth = '400px';
-            notification.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                ${message}
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 5000);
-        }
-
-        // Reset generator form function
-        function resetGeneratorForm() {
-            // Hide config step and show source step
-            document.getElementById('step-config').style.display = 'none';
-            document.getElementById('step-source').style.display = 'block';
-            
-            // Reset all forms
-            const forms = document.querySelectorAll('form');
-            forms.forEach(form => form.reset());
-            
-            // Reset buttons
-            document.getElementById('continueBtn').disabled = true;
-            document.getElementById('generateBtn').disabled = true;
-            
-            // Clear results
-            document.getElementById('upload-result').innerHTML = '';
-            document.getElementById('generation-result').innerHTML = '';
-            
-            // Reset file upload display
-            const uploadArea = document.querySelector('.upload-area');
-            if (uploadArea) {
-                uploadArea.classList.remove('has-file');
-                uploadArea.querySelector('p').textContent = 'Drag and drop your Postman collection JSON file here';
             }
         }
 
-        // Retry last request function
-        function retryLastRequest(button) {
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Retrying...';
-            button.disabled = true;
+        async function handleGenerationSubmit() {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const generationResultDiv = document.getElementById('generation-result');
             
-            // Find the parent form and trigger submission again
-            let form = button.closest('form');
-            if (!form) {
-                // Look for the nearest form or element with HTMX attributes
-                const container = button.closest('.generator-step') || button.closest('.source-panel');
-                form = container?.querySelector('form');
+            if (!loadingIndicator || !generationResultDiv) {
+                console.error("Loading indicator or result div not found.");
+                return;
             }
-            
-            if (form) {
-                // Clear the error message first
-                const target = button.closest('.alert').parentNode;
-                if (target) {
-                    target.innerHTML = '<div class="api-placeholder"><i class="fas fa-spinner fa-spin"></i><p>Retrying request...</p></div>';
-                }
-                
-                // Trigger form submission after a short delay
-                setTimeout(() => {
-                    htmx.trigger(form, 'submit');
-                }, 500);
+
+            loadingIndicator.style.display = 'block';
+            generationResultDiv.innerHTML = '';
+
+            // --- Data Collection ---
+            // 1. API Specification (File or URL)
+            // This part needs to be robust and align with your actual input fields for API spec
+            const apiSpecFileInput = document.getElementById('api-file-upload'); // Example ID
+            let apiSpecData = {};
+            let formData = new FormData(); // Use FormData for file uploads
+
+            if (apiSpecFileInput && apiSpecFileInput.files && apiSpecFileInput.files.length > 0) {
+                formData.append('api_spec_file', apiSpecFileInput.files[0]);
+                // Or, if you need to send content as JSON (less common for files with fetch):
+                // apiSpecData.fileName = apiSpecFileInput.files[0].name;
+                // apiSpecData.fileContent = await apiSpecFileInput.files[0].text();
             } else {
-                // If no form found, try to reload the page section
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
+                // Handle URL input or other spec sources if applicable
+                // For example:
+                // const apiUrl = document.getElementById('api-url-input')?.value;
+                // if (apiUrl) {
+                //     apiSpecData.apiUrl = apiUrl;
+                //     formData.append('api_url', apiUrl);
+                // } else {
+                alert('Please provide an API specification file.');
+                loadingIndicator.style.display = 'none';
+                return;
+                // }
             }
-        }
-
-        // Authentication functions
-        function toggleUserMenu() {
-            const dropdown = document.getElementById('dropdown-menu');
-            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
-            showAuthLinks();
-            // Optionally, redirect to login page or homepage
-            window.location.href = '/login'; 
-        }
-
-        function showProfile() {
-            alert('Profile functionality coming soon!');
-        }
-
-        function showSettings() {
-            alert('Settings functionality coming soon!');
-        }
-
-        // Check authentication on page load
-        function checkAuthentication() {
-            const token = localStorage.getItem('access_token');
-            const authLinks = document.getElementById('auth-links');
-            const userMenu = document.getElementById('user-menu');
             
-            if (token) {
-                // Verify token with server
-                fetch('/api/v1/auth/profile', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('Token invalid');
-                    }
-                })
-                .then(data => {
-                    // User is authenticated
-                    authLinks.style.display = 'none';
-                    userMenu.style.display = 'block';
-                    
-                    // Update user name if available
-                    const userName = document.getElementById('user-name');
-                    if (data.data && data.data.email) {
-                        userName.textContent = `Welcome, ${data.data.email.split('@')[0]}!`;
-                    }
-                })
-                .catch(error => {
-                    // Token is invalid, remove it
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('user');
-                    authLinks.style.display = 'block';
-                    userMenu.style.display = 'none';
+            formData.append('generation_type', selectedGenerationType);
+
+            if (selectedGenerationType === 'sdk') {
+                const selectedLanguages = Array.from(document.querySelectorAll('#language-options input[name="languages"]:checked'))
+                                     .map(cb => cb.value);
+                if (selectedLanguages.length === 0) {
+                    alert('Please select at least one language for SDK generation.');
+                    loadingIndicator.style.display = 'none';
+                    return;
+                }
+                selectedLanguages.forEach(lang => formData.append('languages[]', lang));
+                // apiSpecData.languages = selectedLanguages; // If sending JSON
+            } else if (selectedGenerationType === 'mcp') {
+                const mcpFormat = document.getElementById('mcp-output-format')?.value;
+                formData.append('mcp_output_format', mcpFormat);
+                // apiSpecData.mcp_output_format = mcpFormat; // If sending JSON
+                // Add other MCP specific parameters
+            }
+
+            // If not using FormData and sending JSON instead:
+            // const payload = {
+            //     ...apiSpecData,
+            //     generation_type: selectedGenerationType,
+            //     // languages or mcp_options would be part of apiSpecData above
+            // };
+            // console.log('Submitting for generation (JSON):', payload);
+
+            console.log('Submitting for generation (FormData entries):');
+            for (let pair of formData.entries()) {
+                console.log(pair[0]+ ': ' + pair[1]); 
+            }
+
+            try {
+                // Adjust endpoint as necessary. This might be /generate-sdk, /generate-mcp, or a unified /generate
+                const response = await fetch('/api/generate', { // Example: using a new unified endpoint
+                    method: 'POST',
+                    body: formData, // Use formData directly for fetch
+                    // If sending JSON:
+                    // headers: { 'Content-Type': 'application/json' },
+                    // body: JSON.stringify(payload)
                 });
-            } else {
-                // User is not authenticated
-                authLinks.style.display = 'block';
-                userMenu.style.display = 'none';
+
+                if (!response.ok) {
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.message || errorData.error || JSON.stringify(errorData);
+                    } catch (e) { /* Ignore if error response is not JSON */ }
+                    throw new Error(errorMsg);
+                }
+
+                // Assuming backend returns JSON with download links for SDK or MCP content
+                const result = await response.json(); 
+
+                if (selectedGenerationType === 'sdk') {
+                    if (result.download_links && result.download_links.length > 0) {
+                        let linksHTML = '<h4>SDK Generated Successfully!</h4><ul>';
+                        result.download_links.forEach(link => {
+                            linksHTML += `<li><a href="${link.url}" download="${link.name}">Download ${link.name}</a></li>`;
+                        });
+                        linksHTML += '</ul>';
+                        generationResultDiv.innerHTML = linksHTML;
+                    } else {
+                         generationResultDiv.innerHTML = '<p class="success">SDK generation initiated. Check status or downloads.</p>';
+                         if(result.message) generationResultDiv.innerHTML += `<p>${result.message}</p>`;
+                    }
+                } else { // MCP
+                    generationResultDiv.innerHTML = '<h4>MCP Output Generated Successfully!</h4>';
+                    if (result.mcp_content) {
+                        generationResultDiv.innerHTML += `<pre style="white-space: pre-wrap; word-wrap: break-word; background: #f0f0f0; padding: 10px; border-radius: 4px;">${JSON.stringify(result.mcp_content, null, 2)}</pre>`;
+                    } else if (result.download_url) {
+                         generationResultDiv.innerHTML += `<p><a href="${result.download_url}" download="${result.file_name || 'mcp_output'}">Download MCP Output</a></p>`;
+                    } else {
+                        generationResultDiv.innerHTML += '<p class="success">MCP generation successful. Output details below.</p>';
+                        if(result.message) generationResultDiv.innerHTML += `<p>${result.message}</p>`;
+                    }
+                }
+                 if (result.details) generationResultDiv.innerHTML += `<p>${result.details}</p>`;
+
+
+            } catch (error) {
+                console.error('Generation failed:', error);
+                generationResultDiv.innerHTML = `<p class="error" style="color: var(--error);">Generation failed: ${error.message}</p>`;
+            } finally {
+                loadingIndicator.style.display = 'none';
             }
         }
 
-        // Handle authentication errors
-        document.body.addEventListener('htmx:responseError', (evt) => {
-            if (evt.detail.xhr.status === 401) {
-                // Unauthorized - redirect to login
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('user');
-                showNotification('error', 'Session expired. Please log in again.');
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            setupGeneratorEventListeners();
+            // Initialize the first step display (current-step class should handle this)
+            // If step 1 is not visible by default, uncomment:
+            // goToStep(1); 
         });
 
-        // Close user menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const userMenu = document.querySelector('.user-dropdown');
-            const dropdown = document.getElementById('dropdown-menu');
-            
-            if (!userMenu.contains(event.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-
-        // Initialize authentication check on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-        });
+        // If using HTMX and it dynamically loads parts of this generator,
+        // you might need to re-call setupGeneratorEventListeners or parts of it
+        // document.body.addEventListener('htmx:afterSwap', function(event) {
+        //     if (event.target.closest('#generator-wizard')) {
+        //         setupGeneratorEventListeners();
+        //     }
+        // });
     </script>
 </body>
 </html>

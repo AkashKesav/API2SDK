@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"fmt"
-	"strconv"
 	"time" // For cookie expiration in HandleThemeToggle
 
 	"github.com/AkashKesav/API2SDK/internal/middleware"
@@ -121,23 +120,26 @@ func (hc *HTMXController) GetPopularAPIsHTML(c fiber.Ctx) error {
 
 		html += fmt.Sprintf(`
 <div class="api-card" data-api-id="%s">
-	<div class="api-header">
-		<h4>%s</h4>
-		<span class="api-category">%s</span>
-	</div>
-	<p class="api-description">%s</p>
-	<div class="api-tags">
-		%s
-	</div>
-	<div class="api-actions">
-		<button class="btn btn-primary btn-sm" 
-				onclick="selectAPI('%s', '%s', '%s', '%s')">
-			<i class="fas fa-check"></i> Select API
-		</button>
-		<a href="%s" target="_blank" class="btn btn-secondary btn-sm">
-			<i class="fas fa-external-link-alt"></i> View Collection
-		</a>
-	</div>
+<div class="api-header">
+<h4>%s</h4>
+<span class="api-category">%s</span>
+</div>
+<p class="api-description">%s</p>
+<div class="api-tags">
+%s
+</div>
+<div class="api-actions">
+<button class="btn btn-primary btn-sm btn-select-public-api" 
+data-postman-id="%s" 
+data-name="%s" 
+data-base-url="%s"
+data-postman-url="%s">
+<i class="fas fa-check"></i> Select & Process
+</button>
+<a href="%s" target="_blank" class="btn btn-secondary btn-sm">
+<i class="fas fa-external-link-alt"></i> View Collection
+</a>
+</div>
 </div>
 `, api.PostmanID, api.Name, api.Category, api.Description,
 			tagsHTML, api.PostmanID, api.Name, api.BaseURL, api.PostmanURL, api.PostmanURL)
@@ -146,7 +148,7 @@ func (hc *HTMXController) GetPopularAPIsHTML(c fiber.Ctx) error {
 	return c.SendString(html)
 }
 
-// CreateCollectionHTML handles collection creation from HTMX forms and returns HTML
+// CreateCollectionHTML handles collection creation from HTMX forms and returns JSON
 func (hc *HTMXController) CreateCollectionHTML(c fiber.Ctx) error {
 	var req models.CreateCollectionRequest
 
@@ -160,7 +162,10 @@ func (hc *HTMXController) CreateCollectionHTML(c fiber.Ctx) error {
 		// Read file content
 		fileContent, err := file.Open()
 		if err != nil {
-			return c.SendString(fmt.Sprintf(`<div class=\"alert alert-error\"><i class=\"fas fa-exclamation-circle\"></i><strong>Error:</strong> Failed to read uploaded file: %s</div>`, err.Error()))
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Failed to read uploaded file: " + err.Error(),
+			})
 		}
 		defer fileContent.Close()
 
@@ -168,7 +173,10 @@ func (hc *HTMXController) CreateCollectionHTML(c fiber.Ctx) error {
 		fileBytes := make([]byte, file.Size)
 		_, err = fileContent.Read(fileBytes)
 		if err != nil {
-			return c.SendString(fmt.Sprintf(`<div class=\"alert alert-error\"><i class=\"fas fa-exclamation-circle\"></i><strong>Error:</strong> Failed to read file content: %s</div>`, err.Error()))
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"success": false,
+				"message": "Failed to read file content: " + err.Error(),
+			})
 		}
 
 		req.PostmanData = string(fileBytes)
@@ -188,86 +196,65 @@ func (hc *HTMXController) CreateCollectionHTML(c fiber.Ctx) error {
 	}
 
 	if req.PostmanData == "" {
-		return c.SendString(`<div class=\"alert alert-error\"><i class=\"fas fa-exclamation-circle\"></i><strong>Error:</strong> Postman collection data is required (either upload a file or paste JSON).</div>`)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Postman collection data is required (either upload a file or paste JSON).",
+		})
 	}
 
 	// Get user ID from middleware context
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok || userIDStr == "" {
 		hc.logger.Warn("CreateCollectionHTML: UserID not found or invalid in context")
-		return c.Status(fiber.StatusUnauthorized).SendString(`<div class=\"alert alert-error\"><i class=\"fas fa-exclamation-circle\"></i><strong>Error:</strong> Unauthorized. Please log in.</div>`)
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"message": "Unauthorized. Please log in.",
+		})
 	}
 
 	// Use the injected collectionService
-	collection, err := hc.collectionService.CreateCollection(&req, userIDStr) // Removed c.Context()
+	collection, err := hc.collectionService.CreateCollection(&req, userIDStr)
 	if err != nil {
-		return c.SendString(fmt.Sprintf(`<div class="alert alert-error"><i class="fas fa-exclamation-circle"></i><strong>Error:</strong> Failed to create collection: %s</div>`, err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to create collection: " + err.Error(),
+		})
 	}
 
-	// Return success HTML with JavaScript to proceed to configuration
-	// Instead of directly going to config, now we go to OpenAPI preview if PostmanData was provided
+	// Generate OpenAPI spec if PostmanData was provided
 	if req.PostmanData != "" {
-		// If Postman data was part of the request, generate OpenAPI spec
-		// The collection.ID will be available here.
-		// We need to call the GenerateOpenAPISpec method from collectionSvc
-		_, specContent, err := hc.collectionService.GenerateOpenAPISpec(collection.ID.Hex()) // Removed c.Context()
+		_, specContent, err := hc.collectionService.GenerateOpenAPISpec(collection.ID.Hex())
 		if err != nil {
 			hc.logger.Error("Failed to generate OpenAPI spec after collection creation", zap.Error(err), zap.String("collectionID", collection.ID.Hex()))
-			// Return an error message, but the collection is created.
-			// User might need to manually trigger generation or we could guide them.
-			return c.SendString(fmt.Sprintf(`
-			<div class="alert alert-warning">
-				<i class="fas fa-exclamation-triangle"></i>
-				<strong>Collection created (ID: %s), but failed to auto-generate OpenAPI spec:</strong> %s
-				<p>You can try generating it manually from the collection settings.</p>
-			</div>
-			<script>
-				// Still hide source and show preview, but with a warning
-				document.getElementById('openapi-collection-id').value = '%s';
-				document.getElementById('openapi-spec-preview').value = "Error generating OpenAPI spec: %s";
-				document.getElementById('step-source').style.display = 'none';
-				document.getElementById('upload-panel').style.display = 'none';
-				document.getElementById('url-import-panel').style.display = 'none';
-        document.getElementById('public-api-panel').style.display = 'none';
-				document.getElementById('step-openapi-preview').style.display = 'block';
-			</script>
-			`, collection.ID.Hex(), err.Error(), collection.ID.Hex(), err.Error()))
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"message": fmt.Sprintf("Collection created (ID: %s), but failed to generate OpenAPI spec: %s", collection.ID.Hex(), err.Error()),
+				"data": fiber.Map{
+					"collection_id": collection.ID.Hex(),
+				},
+			})
 		}
 
-		// Return HTML to show OpenAPI preview step
-		return c.SendString(fmt.Sprintf(`
-		<div class="alert alert-success">
-			<i class="fas fa-check-circle"></i>
-			<strong>Success:</strong> Collection uploaded and OpenAPI spec generated! Review below.
-		</div>
-		<script>
-			document.getElementById('openapi-collection-id').value = '%s';
-			document.getElementById('openapi-spec-preview').value = %s;
-			document.getElementById('step-source').style.display = 'none';
-			document.getElementById('upload-panel').style.display = 'none';
-			document.getElementById('url-import-panel').style.display = 'none';
-      document.getElementById('public-api-panel').style.display = 'none';
-			document.getElementById('step-openapi-preview').style.display = 'block';
-		</script>
-		`, collection.ID.Hex(), strconv.Quote(specContent)))
+		// Return success JSON with data for the OpenAPI preview step
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success": true,
+			"message": "Collection uploaded and OpenAPI spec generated successfully!",
+			"data": fiber.Map{
+				"collection_id":   collection.ID.Hex(),
+				"openapi_spec":    specContent,
+				"collection_name": collection.Name,
+			},
+		})
 	} else {
-		// This case should ideally not happen if PostmanData is required.
-		// If it can happen (e.g. creating an empty collection to be populated later),
-		// then proceed to config or a different step.
-		return c.SendString(fmt.Sprintf(`
-		<div class="alert alert-success">
-			<i class="fas fa-check-circle"></i>
-			<strong>Success:</strong> Collection created successfully (ID: %s)! No Postman data to convert.
-		</div>
-		<script>
-			document.getElementById('collection-id').value = '%s'; // This ID is for the SDK config step
-			document.getElementById('step-source').style.display = 'none';
-			document.getElementById('upload-panel').style.display = 'none';
-			document.getElementById('url-import-panel').style.display = 'none';
-      document.getElementById('public-api-panel').style.display = 'none';
-			document.getElementById('step-config').style.display = 'block'; // Go to config if no preview
-		</script>
-		`, collection.ID.Hex(), collection.ID.Hex()))
+		// Return success JSON for config step
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success": true,
+			"message": "Collection created successfully!",
+			"data": fiber.Map{
+				"collection_id":   collection.ID.Hex(),
+				"collection_name": collection.Name,
+			},
+		})
 	}
 }
 

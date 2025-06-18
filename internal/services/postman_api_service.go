@@ -65,7 +65,7 @@ type PostmanWorkspace struct {
 func (s *PostmanAPIService) ListPublicWorkspaces(ctx context.Context) ([]PostmanWorkspace, error) {
 	apiKey := s.getPostmanAPIKey()
 	if apiKey == "" {
-		return nil, fmt.Errorf("Postman API key not configured") // Keep as is, more of a status
+		return nil, fmt.Errorf("postman API key not configured") // Keep as is, more of a status
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/workspaces", postmanAPIBaseURL), nil)
@@ -101,7 +101,7 @@ func (s *PostmanAPIService) ListPublicWorkspaces(ctx context.Context) ([]Postman
 func (s *PostmanAPIService) ListCollectionsInWorkspace(ctx context.Context, workspaceID string) ([]PostmanCollection, error) {
 	apiKey := s.getPostmanAPIKey()
 	if apiKey == "" {
-		return nil, fmt.Errorf("Postman API key not configured") // Keep as is
+		return nil, fmt.Errorf("postman API key not configured") // Keep as is
 	}
 
 	url := fmt.Sprintf("%s/collections?workspace=%s", postmanAPIBaseURL, workspaceID)
@@ -139,7 +139,7 @@ func (s *PostmanAPIService) ListCollectionsInWorkspace(ctx context.Context, work
 func (s *PostmanAPIService) GetCollection(ctx context.Context, collectionUID string) (string, error) {
 	apiKey := s.getPostmanAPIKey()
 	if apiKey == "" {
-		return "", fmt.Errorf("Postman API key not configured") // Keep as is
+		return "", fmt.Errorf("postman API key not configured") // Keep as is
 	}
 
 	collectionURL := fmt.Sprintf("%s/collections/%s", postmanAPIBaseURL, collectionUID)

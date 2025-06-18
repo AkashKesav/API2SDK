@@ -4,7 +4,7 @@
   "description": "JavaScript libraries for API2SDK",
   "main": "dist/bundle.js",
   "scripts": {
-    "build": "esbuild bundler_temp/index.js --bundle --outfile=dist/bundle.js --platform=node --format=iife --global-name=API2SDK_JS_LIBS --loader:.js=jsx",
+    "build": "esbuild index.js --bundle --outfile=dist/bundle.js --platform=browser --target=es2017 --format=iife --global-name=API2SDK_JS_LIBS --loader:.js=jsx --alias:fs=./fs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

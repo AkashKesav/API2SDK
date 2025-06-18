@@ -38,5 +38,5 @@ type SearchRequest struct {
 }
 
 // SupportedLanguages defines the languages supported for SDK generation.
-// TODO: This could be made configurable or dynamic.
-var SupportedLanguages = []string{"go", "typescript", "python", "ruby", "php", "java", "csharp", "rust"}
+// This is now managed via PlatformSettings.
+// var SupportedLanguages = []string{"go", "typescript", "python", "ruby", "php", "java", "csharp", "rust"}

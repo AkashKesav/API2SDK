@@ -56,22 +56,31 @@ func SetupRoutes(
 	publicApisGroup := api.Group("/public-apis") // Renamed for consistency
 	setupPublicAPIRoutes(publicApisGroup, publicApiController)
 
-	// HTMX routes
-	// Some HTMX routes might need auth, some not.
-	// The /api/v1/htmx/popular-apis was shown in logs as being hit by JWT middleware.
-	// This implies it should be protected.
-	// Let's assume the whole htmx group needs protection for now, similar to other protected groups.
-	// If not, this can be refined further by applying middleware to specific routes within setupHTMXRoutes.
+	// HTMX routes - mixed public and protected
+	// Create both public and protected HTMX groups
+	publicHtmxGroup := api.Group("/htmx")
 	protectedHtmxGroup := api.Group("/htmx", middleware.JWTMiddleware(config, logger))
-	setupHTMXRoutes(protectedHtmxGroup, htmxController)
+
+	// Setup routes with appropriate protection levels
+	setupHTMXRoutes(publicHtmxGroup, protectedHtmxGroup, htmxController)
 
 	// Admin routes - require JWT + admin role
 	// This will be api.Group("/admin", middleware.JWTMiddleware(config), middleware.AdminRequired())
 	adminGroup := api.Group("/admin", middleware.JWTMiddleware(config, logger), middleware.AdminRequired()) // Renamed and applied middleware here
 	setupAdminRoutes(adminGroup, adminController, userController)
 
-	// Serve static files for frontend (if needed)
-	// app.Static("/", "./public")
+	// Serve static files for frontend
+	app.Get("/", func(c fiber.Ctx) error {
+		return c.SendFile("./web/index.html")
+	})
+
+	app.Get("/*", func(c fiber.Ctx) error {
+		path := c.Params("*")
+		if path == "" {
+			path = "index.html"
+		}
+		return c.SendFile("./web/" + path)
+	})
 
 	logger.Info("All routes configured successfully")
 }

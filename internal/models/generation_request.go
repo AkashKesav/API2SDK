@@ -2,16 +2,19 @@ package models
 
 import "time"
 
-// GenerationRequest represents a request to generate an SDK
+// GenerationRequest represents a request to generate an SDK or MCP server
 type GenerationRequest struct {
 	CollectionID    string `json:"collection_id" validate:"required"`
-	Language        string `json:"language" validate:"required,oneof=go typescript python php java csharp rust ruby"`
-	PackageName     string `json:"package_name" validate:"required,min=1,max=100"`
+	GenerationType  string `json:"generation_type" validate:"required,oneof=sdk mcp"` // "sdk" or "mcp"
+	Language        string `json:"language,omitempty" validate:"omitempty,required_if=GenerationType sdk,oneof=go typescript python php java csharp rust ruby"`
+	PackageName     string `json:"package_name,omitempty" validate:"omitempty,required_if=GenerationType sdk,min=1,max=100"`
 	OutputDirectory string `json:"output_directory,omitempty"`
+	MCPTransport    string `json:"mcp_transport,omitempty" validate:"omitempty,required_if=GenerationType mcp,oneof=stdio web streamable-http"`
+	MCPPort         int    `json:"mcp_port,omitempty" validate:"omitempty,required_if=MCPTransport web,required_if=MCPTransport streamable-http,min=1024,max=65535"`
 	// UserID will be extracted from JWT token, not from request body
 }
 
-// GenerationResponse represents the response from SDK generation
+// GenerationResponse represents the response from SDK or MCP server generation
 type GenerationResponse struct {
 	Message     string    `json:"message"`
 	SDKID       string    `json:"sdk_id,omitempty"`

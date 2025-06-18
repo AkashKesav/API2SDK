@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"os"
 	"path/filepath"
 
@@ -53,6 +54,22 @@ func (s *CollectionService) GetCollection(id string) (*models.Collection, error)
 	return s.repo.GetByID(id)
 }
 
+// GetCollectionByIDAndUser retrieves a collection by its ID, ensuring it belongs to the specified user.
+func (s *CollectionService) GetCollectionByIDAndUser(ctx context.Context, collectionID string, userID string) (*models.Collection, error) {
+	collection, err := s.repo.GetByID(collectionID) // Assuming GetByID just takes ID
+	if err != nil {
+		s.logger.Error("Failed to get collection by ID", zap.String("collectionID", collectionID), zap.Error(err))
+		return nil, fmt.Errorf("collection not found: %w", err)
+	}
+
+	if collection.UserID != userID {
+		s.logger.Warn("User attempted to access unauthorized collection", zap.String("collectionID", collectionID), zap.String("requestingUserID", userID), zap.String("actualUserID", collection.UserID))
+		return nil, fmt.Errorf("unauthorized to access this collection")
+	}
+
+	return collection, nil
+}
+
 // UpdateCollection updates a collection
 func (s *CollectionService) UpdateCollection(id string, req *models.UpdateCollectionRequest) (*models.Collection, error) {
 	return s.repo.Update(id, req)
@@ -88,10 +105,8 @@ func (s *CollectionService) GenerateOpenAPISpec(collectionID string) (string, st
 
 	s.logger.Info("Calling SDKService.ConvertPostmanToOpenAPI", zap.String("collectionID", collectionID))
 
-	// Use an empty options string for now. This can be made configurable later.
-	optionsJSON := "{}"
-
-	openAPISpecString, err := s.sdkService.ConvertPostmanToOpenAPI(context.Background(), postmanDataStr, optionsJSON)
+	// Corrected call: Removed optionsJSON as it's no longer an argument
+	openAPISpecString, err := s.sdkService.ConvertPostmanToOpenAPI(context.Background(), postmanDataStr)
 	if err != nil {
 		s.logger.Error("Failed to convert Postman to OpenAPI via SDKService", zap.String("collectionID", collectionID), zap.Error(err))
 		return "", "", fmt.Errorf("conversion from Postman to OpenAPI failed: %w", err)
@@ -117,12 +132,12 @@ func (s *CollectionService) GenerateOpenAPISpec(collectionID string) (string, st
 
 // GenerateSDKFromCollection generates an SDK for a given language from a Postman collection.
 // It first converts the Postman collection to OpenAPI, then generates the SDK.
-// Returns the path to the generated SDK and an error if any.
-func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userID string, collectionID string, language string, outputDir string) (string, error) {
+// Returns the path to the generated SDK, the SDK record ID, and an error if any.
+func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userID string, collectionID string, language string, outputDir string) (string, string, error) { // Modified signature
 	// Step 1: Generate OpenAPI spec from Postman collection
 	openAPISpecPath, _, err := s.GenerateOpenAPISpec(collectionID)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate OpenAPI spec for collection %s: %w", collectionID, err)
+		return "", "", fmt.Errorf("failed to generate OpenAPI spec for collection %s: %w", collectionID, err) // Return empty sdkID
 	}
 	// Defer removal of the temporary OpenAPI spec file
 	defer func() {
@@ -132,20 +147,13 @@ func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userI
 	}()
 
 	// Step 2: Generate SDK from the OpenAPI spec
-	// Use the injected s.sdkService
-
-	// Construct a more specific output directory for the SDK, e.g., outputDir/collection_uuid/language_pkgname
-	// This outputDir should be unique per generation request to avoid conflicts if GenerateSDK is called concurrently.
-	// The `outputDir` parameter to this function is the base, e.g., /tmp/sdks
-	// The `outputDir` parameter to `s.sdkService.GenerateSDK` should be the specific path for *this* SDK.
 	uniqueTaskID := uuid.New().String() // Generate a unique ID for this task
 	sdkInstanceOutputDir := filepath.Join(outputDir, uniqueTaskID)
 
 	if err := utils.EnsureDir(sdkInstanceOutputDir); err != nil {
-		return "", fmt.Errorf("failed to create SDK instance output directory %s: %w", sdkInstanceOutputDir, err)
+		return "", "", fmt.Errorf("failed to create SDK instance output directory %s: %w", sdkInstanceOutputDir, err) // Return empty sdkID
 	}
 
-	// Derive a targetPackageName.
 	var targetPackageName string
 	collection, err := s.repo.GetByID(collectionID)
 	if err != nil {
@@ -155,12 +163,18 @@ func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userI
 		targetPackageName = utils.DerivePackageName(collection, language)
 	}
 
-	// Call the SDKService's GenerateSDK method
-	// It now expects: ctx, userID, collectionID, openAPISpecPath, language, sdkInstanceOutputDir, targetPackageName
-	generatedSDKPath, err := s.sdkService.GenerateSDK(ctx, userID, collectionID, openAPISpecPath, language, sdkInstanceOutputDir, targetPackageName)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate SDK for collection %s: %w", collectionID, err)
+	// Prepare SDKGenerationRequest
+	sdkGenReq := &models.SDKGenerationRequest{
+		CollectionID: collectionID,
+		Language:     language,
+		PackageName:  targetPackageName,
 	}
 
-	return generatedSDKPath, nil
+	// Call the SDKService's GenerateSDK method (new signature)
+	sdk, err := s.sdkService.GenerateSDK(ctx, sdkGenReq, primitive.NilObjectID) // Use NilObjectID for new record
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate SDK via SDKService for collection %s: %w", collectionID, err)
+	}
+
+	return sdk.FilePath, sdk.ID.Hex(), nil // Return all three values
 }

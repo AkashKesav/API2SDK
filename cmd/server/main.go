@@ -56,7 +56,34 @@ func main() {
 	var platformSettingsService services.PlatformSettingsService                        // Interface type
 	platformSettingsService = services.NewPlatformSettingsService(platformSettingsRepo) // Concrete type
 	userService := services.NewUserService(userRepo, platformSettingsService, zapLogger)
-	sdkService := services.NewSDKService(zapLogger, sdkRepo)
+
+	// Create PostmanClient for SDKService
+	postmanClient := services.NewPostmanClient()
+
+	// Get OpenAPI Generator path from environment or use default
+	openAPIGenPath := os.Getenv("OPENAPI_GENERATOR_CLI_JAR")
+	if openAPIGenPath == "" {
+		openAPIGenPath = "openapi-generator-cli.jar" // Default
+	}
+
+	// Get mongo client from the database connection for SDKService
+	mongoClient := db.Client()
+
+	sdkService, err := services.NewSDKService(
+		sdkRepo,
+		mongoClient,
+		appConfigs.MongoDBName,
+		postmanClient,
+		zapLogger,
+		openAPIGenPath,
+		services.GetPyGenScript(),
+		services.GetPhpGenScript(),
+		services.GetPhpVendorZip(),
+	)
+	if err != nil {
+		zapLogger.Fatal("Failed to initialize SDK service", zap.Error(err))
+	}
+
 	collectionService := services.NewCollectionService(collectionRepo, zapLogger, sdkRepo, sdkService)
 
 	// Use configs.GetPostmanAPIKey() to get the key from the initialized global config

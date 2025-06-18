@@ -94,6 +94,27 @@ func (r *SDKRepository) GetByUserID(ctx context.Context, userID string, page, li
 	return sdks, totalCount, nil
 }
 
+// GetByCollectionID retrieves all SDK records for a specific collection.
+// Only returns non-soft-deleted SDKs.
+func (r *SDKRepository) GetByCollectionID(ctx context.Context, collectionID string) ([]*models.SDK, error) {
+	var sdks []*models.SDK
+	filter := bson.M{"collectionId": collectionID, "isDeleted": bson.M{"$ne": true}}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		r.logger.Error("Failed to find SDK records by collectionID", zap.Error(err), zap.String("collectionID", collectionID))
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &sdks); err != nil {
+		r.logger.Error("Failed to decode SDK records for collectionID", zap.Error(err), zap.String("collectionID", collectionID))
+		return nil, err
+	}
+
+	return sdks, nil
+}
+
 // Update modifies an existing SDK record.
 func (r *SDKRepository) Update(ctx context.Context, sdk *models.SDK) error {
 	sdk.UpdatedAt = time.Now()
@@ -113,6 +134,23 @@ func (r *SDKRepository) Update(ctx context.Context, sdk *models.SDK) error {
 	return nil
 }
 
+// UpdateFields updates specific fields of an SDK record.
+func (r *SDKRepository) UpdateFields(ctx context.Context, id primitive.ObjectID, fields bson.M) error {
+	filter := bson.M{"_id": id}
+	update := bson.M{"$set": fields}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		r.logger.Error("Failed to update SDK fields",
+			zap.String("sdkID", id.Hex()),
+			zap.Any("fields", fields),
+			zap.Error(err))
+		return err
+	}
+	r.logger.Info("SDK fields updated successfully", zap.String("sdkID", id.Hex()), zap.Any("fields", fields))
+	return nil
+}
+
 // SoftDelete marks an SDK record as deleted.
 // Ensures the SDK belongs to the user requesting deletion.
 func (r *SDKRepository) SoftDelete(ctx context.Context, id primitive.ObjectID, userID string) error {
@@ -127,6 +165,27 @@ func (r *SDKRepository) SoftDelete(ctx context.Context, id primitive.ObjectID, u
 	if result.MatchedCount == 0 {
 		r.logger.Warn("No SDK record found to soft-delete or user mismatch", zap.String("sdkID", id.Hex()), zap.String("userID", userID))
 		return errors.New("sdk not found or permission denied for deletion")
+	}
+	r.logger.Info("SDK record soft-deleted successfully", zap.String("sdkID", id.Hex()))
+	return nil
+}
+
+// SoftDeleteSDK marks an SDK record as deleted and sets the deletion timestamp.
+// This is an example of how a specific soft delete method might look if you prefer it over generic UpdateFields.
+func (r *SDKRepository) SoftDeleteSDK(ctx context.Context, id primitive.ObjectID) error {
+	filter := bson.M{"_id": id}
+	update := bson.M{
+		"$set": bson.M{
+			"isDeleted": true,
+			"status":    models.SDKStatusDeleted,
+			"deletedAt": time.Now(), // Assuming you add DeletedAt to your model
+			"updatedAt": time.Now(),
+		},
+	}
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		r.logger.Error("Failed to soft delete SDK record", zap.Error(err), zap.String("sdkID", id.Hex()))
+		return err
 	}
 	r.logger.Info("SDK record soft-deleted successfully", zap.String("sdkID", id.Hex()))
 	return nil
