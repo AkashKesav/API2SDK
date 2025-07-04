@@ -20,14 +20,17 @@ type Config struct {
 	MongoDBUsername string `json:"mongodb_username"`
 	MongoDBPassword string `json:"mongodb_password"`
 
-	// Authentication Configuration
-	JWTSecret string `json:"jwt_secret"`
-
 	// External API Configuration
 	PostmanAPIKey string `json:"postman_api_key"`
 
+	// HTTP Client Configuration
+	HTTPClientTimeout int `json:"http_client_timeout"`
+
 	// Environment
 	Environment string `json:"environment"`
+
+	// Encryption Key
+	EncryptionKey string `json:"encryption_key"`
 }
 
 // GlobalConfig holds the global configuration instance
@@ -47,20 +50,20 @@ func GetPostmanAPIKey() string {
 	return GlobalConfig.PostmanAPIKey
 }
 
-// GetJWTSecret returns the JWT secret from the global configuration
-func GetJWTSecret() string {
-	if GlobalConfig == nil {
-		log.Fatal("Configuration not loaded. Call LoadConfig() first.")
-	}
-	return GlobalConfig.JWTSecret
-}
-
 // GetPort returns the server port from the global configuration
 func GetPort() string {
 	if GlobalConfig == nil {
 		log.Fatal("Configuration not loaded. Call LoadConfig() first.")
 	}
 	return GlobalConfig.Port
+}
+
+// GetEncryptionKey returns the encryption key from the global configuration
+func GetEncryptionKey() string {
+	if GlobalConfig == nil {
+		log.Fatal("Configuration not loaded. Call LoadConfig() first.")
+	}
+	return GlobalConfig.EncryptionKey
 }
 
 // LoadConfig loads configuration from environment variables
@@ -73,7 +76,7 @@ func LoadConfig() (*Config, error) {
 
 	config := &Config{
 		// Server Configuration
-		Port: getEnvOrDefault("API_PORT", "3000"),
+		Port: getEnvOrDefault("API_PORT", "8080"),
 
 		// MongoDB Configuration
 		MongoDBURI:      getEnvOrDefault("MONGODB_URI", "mongodb://localhost:27017"),
@@ -81,14 +84,17 @@ func LoadConfig() (*Config, error) {
 		MongoDBUsername: getEnvOrDefault("MONGODB_USERNAME", ""),
 		MongoDBPassword: getEnvOrDefault("MONGODB_PASSWORD", ""),
 
-		// Authentication Configuration
-		JWTSecret: getEnvOrDefault("JWT_SECRET", ""),
-
 		// External API Configuration
 		PostmanAPIKey: getEnvOrDefault("POSTMAN_API_KEY", ""),
 
+		// HTTP Client Configuration
+		HTTPClientTimeout: getEnvAsIntOrDefault("HTTP_CLIENT_TIMEOUT", 150),
+
 		// Environment
 		Environment: getEnvOrDefault("ENVIRONMENT", "development"),
+
+		// Encryption Key
+		EncryptionKey: getEnvOrDefault("ENCRYPTION_KEY", ""),
 	}
 
 	// Validate required configuration
@@ -121,10 +127,6 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("MONGODB_DATABASE is required")
 	}
 
-	if config.JWTSecret == "" {
-		return fmt.Errorf("JWT_SECRET is required")
-	}
-
 	if config.Port == "" {
 		return fmt.Errorf("API_PORT is required")
 	}
@@ -134,6 +136,10 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("API_PORT must be a valid number: %w", err)
 	}
 
+	if config.EncryptionKey == "" {
+		return fmt.Errorf("ENCRYPTION_KEY is required")
+	}
+
 	return nil
 }
 
@@ -141,6 +147,17 @@ func validateConfig(config *Config) error {
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+// getEnvAsIntOrDefault returns the value of the environment variable as an integer or a default value
+func getEnvAsIntOrDefault(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+		log.Printf("Warning: Could not convert environment variable %s to integer, using default value", key)
 	}
 	return defaultValue
 }
@@ -172,8 +189,8 @@ func (c *Config) LogConfig() {
 	log.Printf("  Port: %s", c.Port)
 	log.Printf("  MongoDB Database: %s", c.MongoDBName)
 	log.Printf("  MongoDB URI: %s", maskSensitiveData(c.MongoDBURI))
-	log.Printf("  JWT Secret: %s", maskSensitiveData(c.JWTSecret))
 	log.Printf("  Postman API Key: %s", maskSensitiveData(c.PostmanAPIKey))
+	log.Printf("  HTTP Client Timeout: %d seconds", c.HTTPClientTimeout)
 }
 
 // maskSensitiveData masks sensitive configuration data for logging

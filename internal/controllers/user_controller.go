@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"strconv" // For converting string ID from path to uint
 
 	"github.com/AkashKesav/API2SDK/internal/middleware"
@@ -33,7 +34,7 @@ func (uc *UserController) GetMe(c fiber.Ctx) error {
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok || userIDStr == "" {
 		uc.logger.Warn("GetMe: UserID not found or invalid in context")
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: User ID not found. Please log in.", "")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error: User ID not found in context", "")
 	}
 
 	user, err := uc.userService.GetUserProfile(c.Context(), userIDStr)
@@ -49,11 +50,17 @@ func (uc *UserController) UpdateMe(c fiber.Ctx) error {
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok || userIDStr == "" {
 		uc.logger.Warn("UpdateMe: UserID not found or invalid in context")
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized: User ID not found. Please log in.", "")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error: User ID not found in context", "")
 	}
 
 	var req models.UpdateUserProfileRequest
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		uc.logger.Error("Request body is empty for UpdateMe", zap.String("userID", userIDStr))
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		uc.logger.Error("Invalid request body for UpdateMe", zap.String("userID", userIDStr), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}
 
@@ -112,7 +119,13 @@ func (uc *UserController) UpdateUser(c fiber.Ctx) error {
 	}
 
 	var req models.UpdateUserProfileRequest
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		uc.logger.Error("Request body is empty for UpdateUser", zap.String("targetUserID", userIDStr))
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		uc.logger.Error("Invalid request body for UpdateUser", zap.String("targetUserID", userIDStr), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}
 

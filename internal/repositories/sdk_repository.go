@@ -208,3 +208,8 @@ func (r *SDKRepository) HardDelete(ctx context.Context, id primitive.ObjectID, u
 	r.logger.Info("SDK record hard-deleted successfully", zap.String("sdkID", id.Hex()))
 	return nil
 }
+
+// Collection returns the underlying MongoDB collection for advanced queries/statistics
+func (r *SDKRepository) Collection() *mongo.Collection {
+	return r.collection
+}

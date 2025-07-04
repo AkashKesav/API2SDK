@@ -1,8 +1,11 @@
 package controllers
 
 import (
+	"encoding/json"
+
 	"github.com/AkashKesav/API2SDK/internal/models"
 	"github.com/AkashKesav/API2SDK/internal/services"
+	"github.com/AkashKesav/API2SDK/internal/utils"
 	"github.com/gofiber/fiber/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -25,23 +28,18 @@ func (cc *CollectionController) GetUserCollections(c fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(primitive.ObjectID)
 	if !ok {
 		cc.logger.Error("Failed to get userID from context or userID is not of type primitive.ObjectID")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized or invalid user ID type"})
+		return utils.UnauthorizedResponse(c, "Unauthorized or invalid user ID type")
 	}
 
 	collections, err := cc.service.GetCollectionsByUserID(userID.Hex())
 	if err != nil {
 		cc.logger.Error("Failed to retrieve collections for user", zap.String("userID", userID.Hex()), zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   true,
-			"message": "Failed to retrieve collections",
-			"details": err.Error(),
-		})
+		return utils.InternalServerErrorResponse(c, "Failed to retrieve collections", err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    collections,
-		"count":   len(collections),
+	return utils.SuccessResponse(c, "Collections retrieved successfully", fiber.Map{
+		"collections": collections,
+		"count":       len(collections),
 	})
 }
 
@@ -49,33 +47,27 @@ func (cc *CollectionController) GetUserCollections(c fiber.Ctx) error {
 func (cc *CollectionController) GetCollectionByID(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Collection ID is required",
-		})
+		return utils.BadRequestResponse(c, "Collection ID is required", "")
 	}
 
 	userID, ok := c.Locals("userID").(primitive.ObjectID)
 	if !ok {
 		cc.logger.Error("Failed to get userID from context or userID is not of type primitive.ObjectID")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized or invalid user ID type"})
+		return utils.UnauthorizedResponse(c, "Unauthorized or invalid user ID type")
 	}
 
 	// UserID is checked for authorization but not passed to the service's GetCollection method
 	collection, err := cc.service.GetCollection(id)
 	if err != nil {
 		cc.logger.Error("Failed to retrieve collection by ID", zap.String("collectionID", id), zap.String("userID", userID.Hex()), zap.Error(err)) // Log userID for context
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve collection", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to retrieve collection", err.Error())
 	}
 	if collection == nil { // Handle case where collection is not found
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Collection not found"})
+		return utils.NotFoundResponse(c, "Collection not found")
 	}
 	// Optional: Add an explicit check: if collection.UserID != userID.Hex() { return unauthorized }
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    collection,
-	})
+	return utils.SuccessResponse(c, "Collection retrieved successfully", collection)
 }
 
 // CreateCollection handles POST /collections
@@ -96,11 +88,8 @@ func (cc *CollectionController) CreateCollection(c fiber.Ctx) error {
 			// Read file content
 			fileContent, err := file.Open()
 			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error":   true,
-					"message": "Failed to read uploaded file",
-					"details": err.Error(),
-				})
+				cc.logger.Error("Failed to open uploaded file", zap.Error(err))
+				return utils.BadRequestResponse(c, "Failed to read uploaded file", err.Error())
 			}
 			defer fileContent.Close()
 
@@ -108,11 +97,8 @@ func (cc *CollectionController) CreateCollection(c fiber.Ctx) error {
 			fileBytes := make([]byte, file.Size)
 			_, err = fileContent.Read(fileBytes)
 			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"error":   true,
-					"message": "Failed to read file content",
-					"details": err.Error(),
-				})
+				cc.logger.Error("Failed to read file content", zap.Error(err))
+				return utils.BadRequestResponse(c, "Failed to read file content", err.Error())
 			}
 
 			req.PostmanData = string(fileBytes)
@@ -125,58 +111,58 @@ func (cc *CollectionController) CreateCollection(c fiber.Ctx) error {
 		}
 	} else {
 		// Handle JSON request
-		if err := c.Bind().Body(&req); err != nil {
+		body := c.Body()
+		if len(body) == 0 {
+			cc.logger.Error("Request body is empty for CreateCollection")
+			return utils.BadRequestResponse(c, "Invalid request body", "Request body is empty")
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
 			cc.logger.Error("Invalid request body for CreateCollection", zap.Error(err))
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "details": err.Error()})
+			return utils.BadRequestResponse(c, "Invalid request body", err.Error())
 		}
 	}
 
 	if req.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Collection name is required",
-		})
+		return utils.BadRequestResponse(c, "Collection name is required", "")
 	}
 
 	userID, ok := c.Locals("userID").(primitive.ObjectID)
 	if !ok {
 		cc.logger.Error("Failed to get userID from context or userID is not of type primitive.ObjectID for CreateCollection")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized or invalid user ID type"})
+		return utils.UnauthorizedResponse(c, "Unauthorized or invalid user ID type")
 	}
 
 	collection, err := cc.service.CreateCollection(&req, userID.Hex())
 	if err != nil {
 		cc.logger.Error("Failed to create collection", zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create collection", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to create collection", err.Error())
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"message": "Collection created successfully",
-		"data":    collection,
-	})
+	return utils.CreatedResponse(c, "Collection created successfully", collection)
 }
 
 // UpdateCollection handles PUT /collections/:id
 func (cc *CollectionController) UpdateCollection(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Collection ID is required",
-		})
+		return utils.BadRequestResponse(c, "Collection ID is required", "")
 	}
 
 	var req models.UpdateCollectionRequest
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		cc.logger.Error("Request body is empty for UpdateCollection", zap.String("collectionID", id))
+		return utils.BadRequestResponse(c, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		cc.logger.Error("Invalid request body for UpdateCollection", zap.String("collectionID", id), zap.Error(err))
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "details": err.Error()})
+		return utils.BadRequestResponse(c, "Invalid request body", err.Error())
 	}
 
 	userID, ok := c.Locals("userID").(primitive.ObjectID)
 	if !ok {
 		cc.logger.Error("Failed to get userID from context or userID is not of type primitive.ObjectID for UpdateCollection")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized or invalid user ID type"})
+		return utils.UnauthorizedResponse(c, "Unauthorized or invalid user ID type")
 	}
 
 	// UserID is checked for authorization, but not passed to the service's UpdateCollection method.
@@ -184,43 +170,36 @@ func (cc *CollectionController) UpdateCollection(c fiber.Ctx) error {
 	existingCollection, err := cc.service.GetCollection(id)
 	if err != nil {
 		cc.logger.Error("Failed to retrieve collection for update check", zap.String("collectionID", id), zap.String("userID", userID.Hex()), zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve collection for update", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to retrieve collection for update", err.Error())
 	}
 	if existingCollection == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Collection not found"})
+		return utils.NotFoundResponse(c, "Collection not found")
 	}
 	if existingCollection.UserID != userID.Hex() {
 		cc.logger.Warn("User attempted to update collection they do not own", zap.String("collectionID", id), zap.String("ownerUserID", existingCollection.UserID), zap.String("requestingUserID", userID.Hex()))
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not own this collection"})
+		return utils.ForbiddenResponse(c, "Forbidden: You do not own this collection")
 	}
 
 	collection, err := cc.service.UpdateCollection(id, &req)
 	if err != nil {
 		cc.logger.Error("Failed to update collection", zap.String("collectionID", id), zap.String("userID", userID.Hex()), zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update collection", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to update collection", err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Collection updated successfully",
-		"data":    collection,
-	})
+	return utils.SuccessResponse(c, "Collection updated successfully", collection)
 }
 
 // DeleteCollection handles DELETE /collections/:id
 func (cc *CollectionController) DeleteCollection(c fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Collection ID is required",
-		})
+		return utils.BadRequestResponse(c, "Collection ID is required", "")
 	}
 
 	userID, ok := c.Locals("userID").(primitive.ObjectID)
 	if !ok {
 		cc.logger.Error("Failed to get userID from context or userID is not of type primitive.ObjectID for DeleteCollection")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized or invalid user ID type"})
+		return utils.UnauthorizedResponse(c, "Unauthorized or invalid user ID type")
 	}
 
 	// UserID is checked for authorization, but not passed to the service's DeleteCollection method.
@@ -228,26 +207,23 @@ func (cc *CollectionController) DeleteCollection(c fiber.Ctx) error {
 	existingCollection, err := cc.service.GetCollection(id)
 	if err != nil {
 		cc.logger.Error("Failed to retrieve collection for delete check", zap.String("collectionID", id), zap.String("userID", userID.Hex()), zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to retrieve collection for delete", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to retrieve collection for delete", err.Error())
 	}
 	if existingCollection == nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Collection not found"})
+		return utils.NotFoundResponse(c, "Collection not found")
 	}
 	if existingCollection.UserID != userID.Hex() {
 		cc.logger.Warn("User attempted to delete collection they do not own", zap.String("collectionID", id), zap.String("ownerUserID", existingCollection.UserID), zap.String("requestingUserID", userID.Hex()))
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not own this collection"})
+		return utils.ForbiddenResponse(c, "Forbidden: You do not own this collection")
 	}
 
 	err = cc.service.DeleteCollection(id)
 	if err != nil {
 		cc.logger.Error("Failed to delete collection", zap.String("collectionID", id), zap.String("userID", userID.Hex()), zap.Error(err))
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete collection", "details": err.Error()})
+		return utils.InternalServerErrorResponse(c, "Failed to delete collection", err.Error())
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Collection deleted successfully",
-	})
+	return utils.SuccessResponse(c, "Collection deleted successfully", nil)
 }
 
 // GenerateOpenAPISpec handles POST /collections/:id/generate-openapi-spec

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/AkashKesav/API2SDK/configs"
 	"github.com/AkashKesav/API2SDK/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -18,17 +17,14 @@ type PublicAPIRepository struct {
 }
 
 // NewPublicAPIRepository creates a new public API repository
-func NewPublicAPIRepository() *PublicAPIRepository {
+func NewPublicAPIRepository(db *mongo.Database) *PublicAPIRepository {
 	return &PublicAPIRepository{
-		collection: configs.GetCollection("public_apis"),
+		collection: db.Collection("public_apis"),
 	}
 }
 
 // Create creates a new public API
-func (r *PublicAPIRepository) Create(publicAPI *models.PublicAPI) (*models.PublicAPI, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) Create(ctx context.Context, publicAPI *models.PublicAPI) (*models.PublicAPI, error) {
 	_, err := r.collection.InsertOne(ctx, publicAPI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create public API: %w", err)
@@ -38,10 +34,7 @@ func (r *PublicAPIRepository) Create(publicAPI *models.PublicAPI) (*models.Publi
 }
 
 // GetByID retrieves a public API by ID
-func (r *PublicAPIRepository) GetByID(id primitive.ObjectID) (*models.PublicAPI, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) GetByID(ctx context.Context, id primitive.ObjectID) (*models.PublicAPI, error) {
 	var publicAPI models.PublicAPI
 	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&publicAPI)
 	if err != nil {
@@ -52,10 +45,7 @@ func (r *PublicAPIRepository) GetByID(id primitive.ObjectID) (*models.PublicAPI,
 }
 
 // GetAll retrieves all public APIs with optional filtering
-func (r *PublicAPIRepository) GetAll(filter bson.M, page, limit int) ([]models.PublicAPI, int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) GetAll(ctx context.Context, filter bson.M, page, limit int) ([]models.PublicAPI, int64, error) {
 	// Count total documents
 	total, err := r.collection.CountDocuments(ctx, filter)
 	if err != nil {
@@ -86,10 +76,7 @@ func (r *PublicAPIRepository) GetAll(filter bson.M, page, limit int) ([]models.P
 }
 
 // Update updates an existing public API
-func (r *PublicAPIRepository) Update(publicAPI *models.PublicAPI) (*models.PublicAPI, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) Update(ctx context.Context, publicAPI *models.PublicAPI) (*models.PublicAPI, error) {
 	publicAPI.UpdatedAt = time.Now()
 
 	filter := bson.M{"_id": publicAPI.ID}
@@ -104,10 +91,7 @@ func (r *PublicAPIRepository) Update(publicAPI *models.PublicAPI) (*models.Publi
 }
 
 // Delete deletes a public API by ID
-func (r *PublicAPIRepository) Delete(id primitive.ObjectID) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) Delete(ctx context.Context, id primitive.ObjectID) error {
 	filter := bson.M{"_id": id}
 	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
@@ -122,7 +106,7 @@ func (r *PublicAPIRepository) Delete(id primitive.ObjectID) error {
 }
 
 // Search searches for public APIs based on text query
-func (r *PublicAPIRepository) Search(query string, category string, page, limit int) ([]models.PublicAPI, int64, error) {
+func (r *PublicAPIRepository) Search(ctx context.Context, query string, category string, page, limit int) ([]models.PublicAPI, int64, error) {
 	filter := bson.M{}
 
 	// Add text search if query is provided
@@ -142,14 +126,11 @@ func (r *PublicAPIRepository) Search(query string, category string, page, limit 
 	// Only active APIs
 	filter["is_active"] = true
 
-	return r.GetAll(filter, page, limit)
+	return r.GetAll(ctx, filter, page, limit)
 }
 
 // GetByPostmanID retrieves a public API by Postman collection ID
-func (r *PublicAPIRepository) GetByPostmanID(postmanID string) (*models.PublicAPI, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) GetByPostmanID(ctx context.Context, postmanID string) (*models.PublicAPI, error) {
 	var publicAPI models.PublicAPI
 	filter := bson.M{"postman_id": postmanID}
 	err := r.collection.FindOne(ctx, filter).Decode(&publicAPI)
@@ -161,10 +142,7 @@ func (r *PublicAPIRepository) GetByPostmanID(postmanID string) (*models.PublicAP
 }
 
 // GetCategories returns distinct categories
-func (r *PublicAPIRepository) GetCategories() ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (r *PublicAPIRepository) GetCategories(ctx context.Context) ([]string, error) {
 	categories, err := r.collection.Distinct(ctx, "category", bson.M{"is_active": true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)

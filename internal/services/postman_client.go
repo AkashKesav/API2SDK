@@ -6,12 +6,24 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/AkashKesav/API2SDK/configs"
 	"github.com/AkashKesav/API2SDK/internal/models"
 )
+
+// PostmanClientInterface defines the methods used by other services that interact with Postman.
+// This allows for easier mocking in tests.
+type PostmanClientInterface interface {
+	GetPublicCollections(query string, limit int) (*models.PostmanPublicAPIResponse, error)
+	GetCollectionByID(collectionID string) (*models.PostmanCollectionDetail, error)
+	GetRawCollectionJSONByID(collectionID string) (string, error)
+	ImportCollectionFromURL(postmanURL string) (string, error)
+	ExtractCollectionIDFromURL(postmanURL string) (string, error)
+	FetchPopularAPIs() []models.PublicAPI
+	SearchPublicAPIs(query string, category string) []models.PublicAPI
+}
 
 type PostmanClient struct {
 	baseURL string
@@ -20,13 +32,12 @@ type PostmanClient struct {
 }
 
 // NewPostmanClient creates a new Postman API client
-func NewPostmanClient() *PostmanClient {
-	apiKey := os.Getenv("POSTMAN_API_KEY")
+func NewPostmanClient(config *configs.Config) PostmanClientInterface { // Changed return type to interface
 	return &PostmanClient{
 		baseURL: "https://api.getpostman.com",
-		apiKey:  apiKey,
+		apiKey:  config.PostmanAPIKey,
 		client: &http.Client{
-			Timeout: 150 * time.Second, // Increased timeout to be less than server timeout (180s)
+			Timeout: time.Duration(config.HTTPClientTimeout) * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
 				MaxIdleConnsPerHost: 10,
@@ -67,6 +78,9 @@ func (pc *PostmanClient) GetPublicCollections(query string, limit int) (*models.
 	// Add headers
 	req.Header.Set("User-Agent", "API2SDK/1.0")
 	req.Header.Set("Accept", "application/json")
+	if pc.apiKey != "" {
+		req.Header.Set("X-Api-Key", pc.apiKey)
+	}
 
 	resp, err := pc.client.Do(req)
 	if err != nil {
@@ -103,6 +117,9 @@ func (pc *PostmanClient) GetCollectionByID(collectionID string) (*models.Postman
 	// Add headers
 	req.Header.Set("User-Agent", "API2SDK/1.0")
 	req.Header.Set("Accept", "application/json")
+	if pc.apiKey != "" {
+		req.Header.Set("X-Api-Key", pc.apiKey)
+	}
 
 	resp, err := pc.client.Do(req)
 	if err != nil {
@@ -443,16 +460,6 @@ func findIndex(s, substr string) int {
 		}
 	}
 	return -1
-}
-
-func findLastIndex(s, substr string) int {
-	lastIndex := -1
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			lastIndex = i
-		}
-	}
-	return lastIndex
 }
 
 // FetchPopularAPIs returns the curated list of popular APIs

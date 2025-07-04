@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -86,7 +87,12 @@ func (pac *PublicAPIController) GetPublicAPIByID(c fiber.Ctx) error {
 func (pac *PublicAPIController) CreatePublicAPI(c fiber.Ctx) error {
 	var req models.CreatePublicAPIRequest
 
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		pac.logger.Error("Request body is empty for CreatePublicAPI")
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		pac.logger.Error("Invalid request body for CreatePublicAPI", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}
@@ -117,7 +123,12 @@ func (pac *PublicAPIController) UpdatePublicAPI(c fiber.Ctx) error {
 	}
 
 	var req models.UpdatePublicAPIRequest
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		pac.logger.Error("Request body is empty for UpdatePublicAPI", zap.String("id", id))
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		pac.logger.Error("Invalid request body for UpdatePublicAPI", zap.String("id", id), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}
@@ -154,7 +165,12 @@ func (pac *PublicAPIController) ImportFromPostman(c fiber.Ctx) error {
 		Name       string `json:"name,omitempty"` // Optional name override
 	}
 
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		pac.logger.Error("Request body is empty for ImportFromPostman")
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		pac.logger.Error("Invalid request body for ImportFromPostman", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}

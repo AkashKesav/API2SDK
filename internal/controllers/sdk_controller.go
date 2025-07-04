@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"strconv"
 	"strings"
@@ -18,36 +19,41 @@ import (
 
 // SDKController handles HTTP requests related to SDKs.
 type SDKController struct {
-	sdkService            services.SDKServiceInterface
-	collectionService     services.CollectionService // Added CollectionService
+	sdkService              services.SDKServiceInterface
+	collectionService       *services.CollectionService // Added CollectionService
 	platformSettingsService services.PlatformSettingsService
-	logger                *zap.Logger
-	validate              *validator.Validate // Added validator instance
+	logger                  *zap.Logger
+	validate                *validator.Validate // Added validator instance
 }
 
 // NewSDKController creates a new SDKController.
-func NewSDKController(sdkService services.SDKServiceInterface, collectionService services.CollectionService, platformSettingsService services.PlatformSettingsService, logger *zap.Logger) *SDKController {
+func NewSDKController(sdkService services.SDKServiceInterface, collectionService *services.CollectionService, platformSettingsService services.PlatformSettingsService, logger *zap.Logger) *SDKController {
 	return &SDKController{
-		sdkService:            sdkService,
-		collectionService:     collectionService, // Initialize CollectionService
+		sdkService:              sdkService,
+		collectionService:       collectionService, // Initialize CollectionService
 		platformSettingsService: platformSettingsService,
-		logger:                logger,
-		validate:              validator.New(), // Initialize validator
+		logger:                  logger,
+		validate:                validator.New(), // Initialize validator
 	}
 }
 
 // GenerateSDK handles the request to generate an SDK from a collection.
-func (ctrl *SDKController) GenerateSDK(c *fiber.Ctx) error {
+func (ctrl *SDKController) GenerateSDK(c fiber.Ctx) error {
 	ctrl.logger.Info("GenerateSDK endpoint hit")
 
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
 		ctrl.logger.Error("Failed to get userID from context")
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found in token")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
 	var req models.SDKGenerationRequest
-	if err := c.BodyParser(&req); err != nil { // Correct: c.BodyParser
+	body := c.Body()
+	if len(body) == 0 {
+		ctrl.logger.Error("Request body is empty for SDK generation")
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request payload", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		ctrl.logger.Error("Failed to parse request body for SDK generation", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request payload", err.Error())
 	}
@@ -57,7 +63,7 @@ func (ctrl *SDKController) GenerateSDK(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Validation failed", err.Error())
 	}
 
-	_, err := ctrl.collectionService.GetCollectionByIDAndUser(c.UserContext(), req.CollectionID, userIDStr) // Correct: c.UserContext() for service call
+	_, err := ctrl.collectionService.GetCollectionByIDAndUser(context.Background(), req.CollectionID, userIDStr)
 	if err != nil {
 		ctrl.logger.Error("Failed to verify collection ownership or collection not found", zap.String("collectionID", req.CollectionID), zap.String("userID", userIDStr), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusForbidden, "Access to collection denied or collection not found", err.Error())
@@ -71,7 +77,7 @@ func (ctrl *SDKController) GenerateSDK(c *fiber.Ctx) error {
 		Status:       models.SDKStatusPending,
 	}
 
-	createdRecord, err := ctrl.sdkService.CreateSDKRecord(c.UserContext(), initialSDKRecord) // Correct: c.UserContext() for service call
+	createdRecord, err := ctrl.sdkService.CreateSDKRecord(context.Background(), initialSDKRecord)
 	if err != nil {
 		ctrl.logger.Error("Failed to create initial SDK record", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to initialize SDK generation", err.Error())
@@ -100,17 +106,17 @@ func (ctrl *SDKController) GenerateSDK(c *fiber.Ctx) error {
 }
 
 // GenerateMCP handles the request to generate an MCP server.
-func (ctrl *SDKController) GenerateMCP(c *fiber.Ctx) error {
+func (ctrl *SDKController) GenerateMCP(c fiber.Ctx) error {
 	ctrl.logger.Info("GenerateMCP endpoint hit")
 
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
 		ctrl.logger.Error("Failed to get userID from context")
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found in token")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
 	var req models.MCPGenerationRequest
-	if err := c.BodyParser(&req); err != nil { // Correct: c.BodyParser
+	if err := c.Bind().Body(&req); err != nil {
 		ctrl.logger.Error("Failed to parse request body for MCP generation", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request payload", err.Error())
 	}
@@ -120,7 +126,7 @@ func (ctrl *SDKController) GenerateMCP(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Validation failed", err.Error())
 	}
 
-	_, err := ctrl.collectionService.GetCollectionByIDAndUser(c.UserContext(), req.CollectionID, userIDStr) // Correct: c.UserContext() for service call
+	_, err := ctrl.collectionService.GetCollectionByIDAndUser(context.Background(), req.CollectionID, userIDStr)
 	if err != nil {
 		ctrl.logger.Error("Failed to verify collection ownership or collection not found for MCP gen", zap.String("collectionID", req.CollectionID), zap.String("userID", userIDStr), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusForbidden, "Access to collection denied or collection not found", err.Error())
@@ -135,7 +141,7 @@ func (ctrl *SDKController) GenerateMCP(c *fiber.Ctx) error {
 		MCPPort:        req.Port,
 	}
 
-	createdRecord, err := ctrl.sdkService.CreateSDKRecord(c.UserContext(), initialSDKRecord) // Correct: c.UserContext() for service call
+	createdRecord, err := ctrl.sdkService.CreateSDKRecord(context.Background(), initialSDKRecord)
 	if err != nil {
 		ctrl.logger.Error("Failed to create initial MCP record", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to initialize MCP generation", err.Error())
@@ -164,11 +170,11 @@ func (ctrl *SDKController) GenerateMCP(c *fiber.Ctx) error {
 }
 
 // GetSDKByID handles the request to retrieve an SDK by its ID.
-func (ctrl *SDKController) GetSDKByID(c *fiber.Ctx) error {
-	sdkID := c.Params("id") // Correct: c.Params
+func (ctrl *SDKController) GetSDKByID(c fiber.Ctx) error {
+	sdkID := c.Params("id")
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
 	ctrl.logger.Info("GetSDKByID request",
@@ -181,7 +187,7 @@ func (ctrl *SDKController) GetSDKByID(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid SDK ID format", err.Error())
 	}
 
-	sdk, err := ctrl.sdkService.GetSDKByID(c.UserContext(), objectSdkID, userIDStr) // Correct: c.UserContext() for service call, and GetSDKByID
+	sdk, err := ctrl.sdkService.GetSDKByID(context.Background(), objectSdkID, userIDStr)
 	if err != nil {
 		ctrl.logger.Error("Failed to retrieve SDK", zap.Error(err), zap.String("sdkID", sdkID), zap.String("userID", userIDStr))
 		return utils.ErrorResponse(c, fiber.StatusNotFound, "SDK not found or access denied", err.Error())
@@ -191,16 +197,16 @@ func (ctrl *SDKController) GetSDKByID(c *fiber.Ctx) error {
 }
 
 // ListSDKsForUser handles the request to list all SDKs for the authenticated user.
-func (ctrl *SDKController) ListSDKsForUser(c *fiber.Ctx) error {
+func (ctrl *SDKController) ListSDKsForUser(c fiber.Ctx) error {
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
-	pageStr := c.Query("page", "1")     // Correct: c.Query
-	limitStr := c.Query("limit", "10")   // Correct: c.Query
-	statusFilter := c.Query("status") // Correct: c.Query
-	typeFilter := c.Query("type")     // Correct: c.Query
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "10")
+	statusFilter := c.Query("status")
+	typeFilter := c.Query("type")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page < 1 {
@@ -222,7 +228,7 @@ func (ctrl *SDKController) ListSDKsForUser(c *fiber.Ctx) error {
 		zap.String("statusFilter", statusFilter),
 		zap.String("typeFilter", typeFilter))
 
-	sdks, total, err := ctrl.sdkService.GetSDKsByUserID(c.UserContext(), userIDStr, page, limit, statusFilter, typeFilter) // Correct: c.UserContext() for service call, and GetSDKsByUserID
+	sdks, total, err := ctrl.sdkService.GetSDKsByUserID(context.Background(), userIDStr, page, limit)
 	if err != nil {
 		ctrl.logger.Error("Failed to list SDKs for user", zap.Error(err), zap.String("userID", userIDStr))
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve SDKs", err.Error())
@@ -249,11 +255,11 @@ func (ctrl *SDKController) ListSDKsForUser(c *fiber.Ctx) error {
 }
 
 // DownloadSDK handles the request to download an SDK.
-func (ctrl *SDKController) DownloadSDK(c *fiber.Ctx) error {
-	sdkID := c.Params("id") // Correct: c.Params
+func (ctrl *SDKController) DownloadSDK(c fiber.Ctx) error {
+	sdkID := c.Params("id")
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
 	ctrl.logger.Info("DownloadSDK request",
@@ -266,7 +272,7 @@ func (ctrl *SDKController) DownloadSDK(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid SDK ID format", err.Error())
 	}
 
-	sdk, serviceErr := ctrl.sdkService.GetSDKByID(c.UserContext(), objectSdkID, userIDStr) // Correct: c.UserContext() for service call, and GetSDKByID
+	sdk, serviceErr := ctrl.sdkService.GetSDKByID(context.Background(), objectSdkID, userIDStr)
 	if serviceErr != nil {
 		ctrl.logger.Error("Failed to retrieve SDK for download", zap.Error(serviceErr), zap.String("sdkID", sdkID), zap.String("userID", userIDStr))
 		return utils.ErrorResponse(c, fiber.StatusNotFound, "SDK not found or access denied", serviceErr.Error())
@@ -281,27 +287,35 @@ func (ctrl *SDKController) DownloadSDK(c *fiber.Ctx) error {
 		ctrl.logger.Error("SDK file path is empty for a completed SDK", zap.String("sdkID", sdkID))
 		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "SDK file not available", "The SDK file path is missing.")
 	}
-	
+
 	var downloadFilename string
 	if sdk.GenerationType == models.GenerationTypeMCP {
-		downloadFilename = "mcp-server-" + strings.ReplaceAll(strings.ToLower(sdk.CollectionID), " ", "-") + ".zip" 
-		if sdk.PackageName != "" { 
-			downloadFilename = strings.ReplaceAll(strings.ToLower(sdk.PackageName), " ", "-") + ".zip"
+		downloadFilename = "mcp-server-" + strings.ReplaceAll(strings.ToLower(sdk.CollectionID), " ", "-") + ".zip"
+		if sdk.PackageName != "" {
+			// Sanitize package name to prevent path traversal
+			sanitizedPackageName := strings.ReplaceAll(sdk.PackageName, "..", "")
+			sanitizedPackageName = strings.ReplaceAll(sanitizedPackageName, "/", "")
+			sanitizedPackageName = strings.ReplaceAll(sanitizedPackageName, "\\", "")
+			downloadFilename = strings.ReplaceAll(strings.ToLower(sanitizedPackageName), " ", "-") + ".zip"
 		}
 	} else {
-		downloadFilename = strings.ReplaceAll(strings.ToLower(sdk.PackageName), " ", "-") + ".zip"
+		// Sanitize package name to prevent path traversal
+		sanitizedPackageName := strings.ReplaceAll(sdk.PackageName, "..", "")
+		sanitizedPackageName = strings.ReplaceAll(sanitizedPackageName, "/", "")
+		sanitizedPackageName = strings.ReplaceAll(sanitizedPackageName, "\\", "")
+		downloadFilename = strings.ReplaceAll(strings.ToLower(sanitizedPackageName), " ", "-") + ".zip"
 	}
-	
+
 	ctrl.logger.Info("Attempting to download SDK file", zap.String("filePath", sdk.FilePath), zap.String("downloadAs", downloadFilename))
-	return c.Download(sdk.FilePath, downloadFilename) // Correct: c.Download
+	return c.Download(sdk.FilePath, downloadFilename)
 }
 
 // DeleteSDK handles the request to delete an SDK.
-func (ctrl *SDKController) DeleteSDK(c *fiber.Ctx) error {
-	sdkID := c.Params("id") // Correct: c.Params
+func (ctrl *SDKController) DeleteSDK(c fiber.Ctx) error {
+	sdkID := c.Params("id")
 	userIDStr, ok := middleware.GetUserID(c)
 	if !ok {
-		return utils.ErrorResponse(c, fiber.StatusUnauthorized, "Unauthorized", "User ID not found")
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
 	}
 
 	ctrl.logger.Info("DeleteSDK request",
@@ -314,4 +328,128 @@ func (ctrl *SDKController) DeleteSDK(c *fiber.Ctx) error {
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid SDK ID format", err.Error())
 	}
 
-	serviceErr := ctrl.sdkService.DeleteSDK(c.UserContext(), objectSdkID, userIDStr) // Correct: c.UserContext() for service call
+	serviceErr := ctrl.sdkService.DeleteSDK(context.Background(), objectSdkID, userIDStr)
+	if serviceErr != nil {
+		ctrl.logger.Error("Failed to delete SDK", zap.Error(serviceErr), zap.String("sdkID", sdkID), zap.String("userID", userIDStr))
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to delete SDK", serviceErr.Error())
+	}
+
+	return utils.SuccessResponse(c, "SDK deleted successfully", nil)
+}
+
+// GetSupportedLanguages handles the request to get supported programming languages for SDK generation.
+func (ctrl *SDKController) GetSupportedLanguages(c fiber.Ctx) error {
+	ctrl.logger.Info("GetSupportedLanguages endpoint hit")
+
+	// Define supported languages for SDK generation
+	supportedLanguages := []map[string]interface{}{
+		{
+			"id":          "python",
+			"name":        "Python",
+			"description": "Generate Python SDK with requests library",
+			"extension":   ".py",
+		},
+		{
+			"id":          "javascript",
+			"name":        "JavaScript",
+			"description": "Generate JavaScript SDK for Node.js",
+			"extension":   ".js",
+		},
+		{
+			"id":          "typescript",
+			"name":        "TypeScript",
+			"description": "Generate TypeScript SDK with type definitions",
+			"extension":   ".ts",
+		},
+		{
+			"id":          "java",
+			"name":        "Java",
+			"description": "Generate Java SDK with OkHttp client",
+			"extension":   ".java",
+		},
+		{
+			"id":          "csharp",
+			"name":        "C#",
+			"description": "Generate C# SDK for .NET",
+			"extension":   ".cs",
+		},
+		{
+			"id":          "go",
+			"name":        "Go",
+			"description": "Generate Go SDK with net/http",
+			"extension":   ".go",
+		},
+		{
+			"id":          "php",
+			"name":        "PHP",
+			"description": "Generate PHP SDK with Guzzle HTTP client",
+			"extension":   ".php",
+		},
+		{
+			"id":          "ruby",
+			"name":        "Ruby",
+			"description": "Generate Ruby SDK with Faraday",
+			"extension":   ".rb",
+		},
+	}
+
+	return utils.SuccessResponse(c, "Supported languages retrieved successfully", supportedLanguages)
+}
+
+// GetSDKHistory handles the request to get SDK generation history for the authenticated user.
+func (ctrl *SDKController) GetSDKHistory(c fiber.Ctx) error {
+	userIDStr, ok := middleware.GetUserID(c)
+	if !ok {
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Internal Error", "User ID not found in context")
+	}
+
+	pageStr := c.Query("page", "1")
+	limitStr := c.Query("limit", "10")
+	statusFilter := c.Query("status")
+	typeFilter := c.Query("type")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	ctrl.logger.Info("GetSDKHistory request",
+		zap.String("userID", userIDStr),
+		zap.Int("page", page),
+		zap.Int("limit", limit),
+		zap.String("statusFilter", statusFilter),
+		zap.String("typeFilter", typeFilter))
+
+	sdks, total, err := ctrl.sdkService.GetSDKsByUserID(context.Background(), userIDStr, page, limit)
+	if err != nil {
+		ctrl.logger.Error("Failed to get SDK history for user", zap.Error(err), zap.String("userID", userIDStr))
+		return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Failed to retrieve SDK history", err.Error())
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int(math.Ceil(float64(total) / float64(limit)))
+	}
+
+	pagination := models.Pagination{
+		CurrentPage: page,
+		Limit:       limit,
+		TotalItems:  total,
+		TotalPages:  totalPages,
+	}
+
+	response := models.PaginatedSDKsResponse{
+		SDKs:       sdks,
+		Pagination: pagination,
+	}
+
+	return utils.SuccessResponse(c, "SDK history retrieved successfully", response)
+}

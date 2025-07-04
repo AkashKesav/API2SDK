@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/AkashKesav/API2SDK/internal/models"
@@ -10,25 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap" // Added for logging
 )
-
-// DefaultJWTSecretKey is a fallback if no key is in settings.
-// It's crucial that this is changed or that a key is always set in production.
-var DefaultJWTSecretKey = []byte("your-very-secret-key-for-api2sdk-project-change-this-in-prod")
-
-// Claims defines the JWT claims structure.
-type Claims struct {
-	UserID string `json:"user_id"`
-	Name   string `json:"name"` // Changed from Username to Name
-	jwt.RegisteredClaims
-}
 
 // UserService defines the interface for user-related operations.
 type UserService interface {
 	RegisterUser(ctx context.Context, name, email, password string) (*models.User, error) // Changed from username to name
-	LoginUser(ctx context.Context, name, password string) (*models.User, string, error)   // Changed from username to name
 	GetUserProfile(ctx context.Context, userID string) (*models.User, error)
 	UpdateUserProfile(ctx context.Context, userID string, req *models.UpdateUserProfileRequest) (*models.User, error)
 	ChangePassword(ctx context.Context, userID string, oldPassword string, newPassword string) error
@@ -36,8 +24,8 @@ type UserService interface {
 	GetAllUsers(ctx context.Context, page, limit int) ([]*models.User, int64, error) // Changed to []*models.User
 	UpdateUserRole(ctx context.Context, userID string, newRole models.UserRole) error
 	DeleteUserAsAdmin(ctx context.Context, userID string) error
-	RefreshToken(ctx context.Context, refreshTokenString string) (string, error) // Added for token refresh
-	GetTotalUsersCount(ctx context.Context) (int64, error)                       // Added for admin stats
+	GetTotalUsersCount(ctx context.Context) (int64, error)  // Added for admin stats
+	GetRecentUsersCount(ctx context.Context) (int64, error) // Added for recent users count
 }
 
 // userServiceImpl implements the UserService interface.
@@ -56,17 +44,36 @@ func NewUserService(userRepo repositories.UserRepository, psService PlatformSett
 	}
 }
 
-func (s *userServiceImpl) getJWTSecretKey(ctx context.Context) []byte {
-	settings, err := s.platformSettingsService.GetPlatformSettingsStruct(ctx)
-	if err != nil {
-		s.logger.Warn("Failed to get platform settings for JWT secret, using default key", zap.Error(err))
-		return DefaultJWTSecretKey
+// validatePassword checks if password meets complexity requirements
+func (s *userServiceImpl) validatePassword(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
 	}
-	if settings.JWTSecretKey == "" {
-		s.logger.Warn("JWT secret key is not set in platform settings, using default key")
-		return DefaultJWTSecretKey
+	if len(password) > 128 {
+		return fmt.Errorf("password must be less than 128 characters long")
 	}
-	return []byte(settings.JWTSecretKey)
+
+	// Check for at least one uppercase letter
+	if matched, _ := regexp.MatchString(`[A-Z]`, password); !matched {
+		return fmt.Errorf("password must contain at least one uppercase letter")
+	}
+
+	// Check for at least one lowercase letter
+	if matched, _ := regexp.MatchString(`[a-z]`, password); !matched {
+		return fmt.Errorf("password must contain at least one lowercase letter")
+	}
+
+	// Check for at least one digit
+	if matched, _ := regexp.MatchString(`[0-9]`, password); !matched {
+		return fmt.Errorf("password must contain at least one digit")
+	}
+
+	// Check for at least one special character
+	if matched, _ := regexp.MatchString(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`, password); !matched {
+		return fmt.Errorf("password must contain at least one special character")
+	}
+
+	return nil
 }
 
 // RegisterUser handles new user registration.
@@ -85,6 +92,11 @@ func (s *userServiceImpl) RegisterUser(ctx context.Context, name, email, passwor
 	}
 	if existingUserByEmail != nil {
 		return nil, fmt.Errorf("email already registered")
+	}
+
+	// Validate password complexity
+	if err := s.validatePassword(password); err != nil {
+		return nil, fmt.Errorf("password validation failed: %w", err)
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -106,43 +118,6 @@ func (s *userServiceImpl) RegisterUser(ctx context.Context, name, email, passwor
 
 	user.Password = ""
 	return user, nil
-}
-
-// LoginUser handles user login and JWT generation.
-func (s *userServiceImpl) LoginUser(ctx context.Context, name, password string) (*models.User, string, error) { // Changed from username to name
-	user, err := s.userRepo.FindByName(ctx, name) // Changed from FindByUsername to FindByName
-	if err != nil {
-		return nil, "", fmt.Errorf("error fetching user: %w", err)
-	}
-	if user == nil {
-		return nil, "", fmt.Errorf("invalid name or password")
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		return nil, "", fmt.Errorf("invalid name or password")
-	}
-
-	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &Claims{
-		UserID: user.ID.Hex(),
-		Name:   user.Name, // Changed from Username to Name
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "api2sdk",
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtKey := s.getJWTSecretKey(ctx) // Get JWT key from settings
-	tokenString, err := token.SignedString(jwtKey)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	user.Password = "" // Clear password before returning user object
-	return user, tokenString, nil
 }
 
 // GetUserProfile retrieves a user's profile by their ID.
@@ -223,8 +198,9 @@ func (s *userServiceImpl) ChangePassword(ctx context.Context, userID string, old
 		return fmt.Errorf("incorrect old password")
 	}
 
-	if len(newPassword) < 6 { // Example: Add password policy validation
-		return fmt.Errorf("new password is too short")
+	// Validate new password complexity
+	if err := s.validatePassword(newPassword); err != nil {
+		return fmt.Errorf("new password validation failed: %w", err)
 	}
 
 	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -303,55 +279,8 @@ func (s *userServiceImpl) GetTotalUsersCount(ctx context.Context) (int64, error)
 	return count, nil
 }
 
-// RefreshToken validates a refresh token and issues a new access token.
-func (s *userServiceImpl) RefreshToken(ctx context.Context, refreshTokenString string) (string, error) {
-	claims := &Claims{}
-	jwtKey := s.getJWTSecretKey(ctx) // Get JWT key from settings
-
-	token, err := jwt.ParseWithClaims(refreshTokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtKey, nil // Use the key from settings
-	})
-
-	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return "", fmt.Errorf("invalid token signature")
-		}
-		// Check for expired token, though token.Valid should also catch this.
-		// err can be jwt.ErrTokenExpired or other validation errors.
-		return "", fmt.Errorf("could not parse refresh token: %w", err)
-	}
-
-	if !token.Valid {
-		return "", fmt.Errorf("refresh token is invalid or expired")
-	}
-
-	// Check if the user still exists and is active, etc. (optional)
-	// _, err = s.userRepo.FindByID(ctx, claims.UserID) // Assuming claims.UserID is primitive.ObjectID
-	// if err != nil {
-	// 	return "", fmt.Errorf("user not found or inactive")
-	// }
-
-	// Create new access token
-	newExpirationTime := time.Now().Add(1 * time.Hour) // Shorter lifespan for access tokens
-	newClaims := &Claims{
-		UserID: claims.UserID,
-		Name:   claims.Name,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(newExpirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "api2sdk",
-		},
-	}
-
-	newAccessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
-	newAccessTokenString, err := newAccessToken.SignedString(jwtKey) // Use the same key
-	if err != nil {
-		return "", fmt.Errorf("failed to generate new access token: %w", err)
-	}
-
-	return newAccessTokenString, nil
+// GetRecentUsersCount returns the number of users registered in the last 7 days
+func (s *userServiceImpl) GetRecentUsersCount(ctx context.Context) (int64, error) {
+	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
+	return s.userRepo.CountCreatedAfter(ctx, sevenDaysAgo)
 }

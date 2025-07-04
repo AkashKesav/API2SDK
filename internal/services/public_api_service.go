@@ -8,6 +8,7 @@ import (
 	"github.com/AkashKesav/API2SDK/internal/models"       // Corrected path
 	"github.com/AkashKesav/API2SDK/internal/repositories" // Corrected path
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +22,9 @@ type PublicAPIService struct {
 // NewPublicAPIService creates a new public API service.
 // It requires a logger, PostmanAPIService, and CollectionService.
 // The PublicAPIRepository is internally instantiated for now, but could also be injected.
-func NewPublicAPIService(logger *zap.Logger, postmanAPIService *PostmanAPIService, collectionService *CollectionService) *PublicAPIService {
+func NewPublicAPIService(logger *zap.Logger, postmanAPIService *PostmanAPIService, collectionService *CollectionService, db *mongo.Database) *PublicAPIService {
 	return &PublicAPIService{
-		repository:        repositories.NewPublicAPIRepository(), // Assuming this doesn't need DB for static list for now
+		repository:        repositories.NewPublicAPIRepository(db), // Assuming this doesn't need DB for static list for now
 		logger:            logger,
 		postmanAPIService: postmanAPIService,
 		collectionService: collectionService,
@@ -109,7 +110,7 @@ func (s *PublicAPIService) GetPublicAPIByID(id string) (*models.PublicAPI, error
 		s.logger.Error("Failed to convert ID string to ObjectID", zap.String("id", id), zap.Error(err))
 		return nil, fmt.Errorf("invalid ID format: '%s'", id)
 	}
-	api, err := s.repository.GetByID(objectID) // Use ObjectID
+	api, err := s.repository.GetByID(context.Background(), objectID) // Use ObjectID
 	if err != nil {
 		s.logger.Error("Failed to get public API from repository", zap.String("id", id), zap.Error(err))
 		return nil, fmt.Errorf("public API with ID '%s' not found", id)
@@ -121,32 +122,70 @@ func (s *PublicAPIService) GetPublicAPIByID(id string) (*models.PublicAPI, error
 
 // CreatePublicAPI creates a new public API entry in the repository.
 func (s *PublicAPIService) CreatePublicAPI(req *models.CreatePublicAPIRequest) (*models.PublicAPI, error) {
-	// return s.repository.Create(req)
-	s.logger.Warn("CreatePublicAPI called, but repository interaction is not fully implemented in this stub.")
-	return nil, fmt.Errorf("CreatePublicAPI not implemented via repository yet")
+	s.logger.Info("Creating new public API entry", zap.String("name", req.Name))
+	// Convert CreatePublicAPIRequest to PublicAPI for repository
+	api := &models.PublicAPI{
+		Name:        req.Name,
+		Description: req.Description,
+		Category:    req.Category,
+		BaseURL:     req.BaseURL,
+		PostmanURL:  req.PostmanURL,
+		// Assuming PostmanID and IsActive might not be directly available in request
+		Tags:     req.Tags,
+		IsActive: true, // Default to true if not provided in request
+	}
+	return s.repository.Create(context.Background(), api)
 }
 
 // UpdatePublicAPI updates an existing public API entry in the repository.
 func (s *PublicAPIService) UpdatePublicAPI(id string, req *models.UpdatePublicAPIRequest) (*models.PublicAPI, error) {
-	// return s.repository.Update(id, req)
-	s.logger.Warn("UpdatePublicAPI called, but repository interaction is not fully implemented in this stub.", zap.String("id", id))
-	return nil, fmt.Errorf("UpdatePublicAPI not implemented via repository yet")
+	s.logger.Info("Updating public API entry", zap.String("id", id))
+	// Fetch the existing API to update
+	api, err := s.GetPublicAPIByID(id)
+	if err != nil {
+		s.logger.Error("Failed to fetch API for update", zap.String("id", id), zap.Error(err))
+		return nil, err
+	}
+	// Update fields from request
+	if req.Name != "" {
+		api.Name = req.Name
+	}
+	if req.Description != "" {
+		api.Description = req.Description
+	}
+	if req.Category != "" {
+		api.Category = req.Category
+	}
+	if req.BaseURL != "" {
+		api.BaseURL = req.BaseURL
+	}
+	if req.PostmanURL != "" {
+		api.PostmanURL = req.PostmanURL
+	}
+	if len(req.Tags) > 0 {
+		api.Tags = req.Tags
+	}
+	// Assuming IsActive might be a pointer, handle with care
+	// If field exists and is set, update it (assuming it's a pointer in request)
+	// For now, we'll keep the existing value since the field name/type is uncertain
+	return s.repository.Update(context.Background(), api)
 }
 
 // DeletePublicAPI deletes a public API entry from the repository.
 func (s *PublicAPIService) DeletePublicAPI(id string) error {
-	// return s.repository.Delete(id)
-	s.logger.Warn("DeletePublicAPI called, but repository interaction is not fully implemented in this stub.", zap.String("id", id))
-	return fmt.Errorf("DeletePublicAPI not implemented via repository yet")
+	s.logger.Info("Deleting public API entry", zap.String("id", id))
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		s.logger.Error("Invalid ID format for delete", zap.String("id", id), zap.Error(err))
+		return fmt.Errorf("invalid ID format: '%s'", id)
+	}
+	return s.repository.Delete(context.Background(), objectID)
 }
 
-// SearchPublicCollections searches Postman's public API for collections.
-// This should likely use the postmanAPIService.
+// SearchPublicCollections searches Postman's public API for collections using PostmanAPIService.
 func (s *PublicAPIService) SearchPublicCollections(query string, limit int) (interface{}, error) {
-	s.logger.Info("SearchPublicCollections called in PublicAPIService. This might delegate to PostmanAPIService.", zap.String("query", query), zap.Int("limit", limit))
-	// Example delegation (actual method in PostmanAPIService might differ):
-	// return s.postmanAPIService.SearchCollections(context.Background(), query, limit)
-	return nil, fmt.Errorf("SearchPublicCollections via PostmanAPIService not fully implemented yet")
+	s.logger.Info("Searching public collections", zap.String("query", query), zap.Int("limit", limit))
+	return s.postmanAPIService.SearchCollections(context.Background(), query, limit)
 }
 
 // GetPopularAPIs retrieves a list of popular public APIs.

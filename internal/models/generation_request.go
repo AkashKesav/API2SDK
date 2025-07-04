@@ -11,7 +11,7 @@ type GenerationRequest struct {
 	OutputDirectory string `json:"output_directory,omitempty"`
 	MCPTransport    string `json:"mcp_transport,omitempty" validate:"omitempty,required_if=GenerationType mcp,oneof=stdio web streamable-http"`
 	MCPPort         int    `json:"mcp_port,omitempty" validate:"omitempty,required_if=MCPTransport web,required_if=MCPTransport streamable-http,min=1024,max=65535"`
-	// UserID will be extracted from JWT token, not from request body
+	// UserID will be extracted from middleware context, not from request body
 }
 
 // GenerationResponse represents the response from SDK or MCP server generation

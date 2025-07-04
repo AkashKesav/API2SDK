@@ -82,6 +82,55 @@ func DerivePackageName(collection *models.Collection, language string) string {
 	}
 }
 
+// ConvertToSnakeCase converts a string to snake_case format
+func ConvertToSnakeCase(name string) string {
+	if name == "" {
+		return ""
+	}
+	var result strings.Builder
+	for i, char := range name {
+		if i > 0 && char >= 'A' && char <= 'Z' {
+			result.WriteByte('_')
+		}
+		result.WriteRune(char)
+	}
+	return strings.ToLower(result.String())
+}
+
+// ConvertToKebabCase converts a string to kebab-case format
+func ConvertToKebabCase(name string) string {
+	if name == "" {
+		return ""
+	}
+	var result strings.Builder
+	for i, char := range name {
+		if i > 0 && char >= 'A' && char <= 'Z' {
+			result.WriteByte('-')
+		}
+		result.WriteRune(char)
+	}
+	return strings.ToLower(result.String())
+}
+
+// ConvertToPascalCase converts a string to PascalCase format
+func ConvertToPascalCase(name string) string {
+	if name == "" {
+		return ""
+	}
+	words := strings.FieldsFunc(name, func(r rune) bool {
+		return r == '_' || r == '-' || r == ' '
+	})
+	var result strings.Builder
+	for _, word := range words {
+		if len(word) > 0 {
+			firstChar := strings.ToUpper(string(word[0]))
+			rest := strings.ToLower(word[1:])
+			result.WriteString(firstChar + rest)
+		}
+	}
+	return result.String()
+}
+
 // GenerateUniqueID generates a unique identifier for SDK generation tasks
 func GenerateUniqueID() string {
 	return fmt.Sprintf("%d_%s", time.Now().Unix(), uuid.New().String()[:8])

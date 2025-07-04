@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 
 	"github.com/AkashKesav/API2SDK/internal/models"
 	"github.com/AkashKesav/API2SDK/internal/repositories"
@@ -18,16 +17,14 @@ import (
 type CollectionService struct {
 	repo       *repositories.CollectionRepository
 	logger     *zap.Logger
-	sdkRepo    *repositories.SDKRepository
 	sdkService *SDKService // Added SDKService dependency
 }
 
 // NewCollectionService creates a new collection service
-func NewCollectionService(repo *repositories.CollectionRepository, logger *zap.Logger, sdkRepo *repositories.SDKRepository, sdkService *SDKService) *CollectionService {
+func NewCollectionService(repo *repositories.CollectionRepository, logger *zap.Logger, sdkService *SDKService) *CollectionService {
 	return &CollectionService{
 		repo:       repo,
 		logger:     logger,
-		sdkRepo:    sdkRepo,
 		sdkService: sdkService, // Store sdkService
 	}
 }
@@ -42,22 +39,22 @@ func (s *CollectionService) CreateCollection(req *models.CreateCollectionRequest
 		Endpoints:   []models.Endpoint{},
 	}
 
-	return s.repo.Create(collection)
+	return s.repo.Create(context.Background(), collection)
 }
 
 // GetAllCollections retrieves all collections
 func (s *CollectionService) GetAllCollections() ([]*models.Collection, error) {
-	return s.repo.GetAll()
+	return s.repo.GetAll(context.Background())
 }
 
 // GetCollection retrieves a collection by ID
 func (s *CollectionService) GetCollection(id string) (*models.Collection, error) {
-	return s.repo.GetByID(id)
+	return s.repo.GetByID(context.Background(), id)
 }
 
 // GetCollectionByIDAndUser retrieves a collection by its ID, ensuring it belongs to the specified user.
 func (s *CollectionService) GetCollectionByIDAndUser(ctx context.Context, collectionID string, userID string) (*models.Collection, error) {
-	collection, err := s.repo.GetByID(collectionID) // Assuming GetByID just takes ID
+	collection, err := s.repo.GetByID(ctx, collectionID) // Assuming GetByID just takes ID
 	if err != nil {
 		s.logger.Error("Failed to get collection by ID", zap.String("collectionID", collectionID), zap.Error(err))
 		return nil, fmt.Errorf("collection not found: %w", err)
@@ -73,24 +70,24 @@ func (s *CollectionService) GetCollectionByIDAndUser(ctx context.Context, collec
 
 // UpdateCollection updates a collection
 func (s *CollectionService) UpdateCollection(id string, req *models.UpdateCollectionRequest) (*models.Collection, error) {
-	return s.repo.Update(id, req)
+	return s.repo.Update(context.Background(), id, req)
 }
 
 // DeleteCollection deletes a collection
 func (s *CollectionService) DeleteCollection(id string) error {
-	return s.repo.Delete(id)
+	return s.repo.Delete(context.Background(), id)
 }
 
 // GetCollectionsByUserID retrieves collections by user ID
 func (s *CollectionService) GetCollectionsByUserID(userID string) ([]*models.Collection, error) {
-	return s.repo.GetByUserID(userID)
+	return s.repo.GetByUserID(context.Background(), userID)
 }
 
 // GenerateOpenAPISpec generates an OpenAPI specification from a Postman collection
 // using the SDKService's ConvertPostmanToOpenAPI method.
 // It saves the spec to a temporary file and returns the path and the spec string.
 func (s *CollectionService) GenerateOpenAPISpec(collectionID string) (string, string, error) {
-	collection, err := s.repo.GetByID(collectionID)
+	collection, err := s.repo.GetByID(context.Background(), collectionID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get collection: %w", err)
 	}
@@ -156,7 +153,7 @@ func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userI
 	}
 
 	var targetPackageName string
-	collection, err := s.repo.GetByID(collectionID)
+	collection, err := s.repo.GetByID(context.Background(), collectionID)
 	if err != nil {
 		s.logger.Warn("Failed to get collection by ID for package name derivation, using default.", zap.String("collectionID", collectionID), zap.Error(err))
 		targetPackageName = utils.DerivePackageName(nil, language) // Pass nil for collection to use default
@@ -171,11 +168,31 @@ func (s *CollectionService) GenerateSDKFromCollection(ctx context.Context, userI
 		PackageName:  targetPackageName,
 	}
 
-	// Call the SDKService's GenerateSDK method (new signature)
-	sdk, err := s.sdkService.GenerateSDK(ctx, sdkGenReq, primitive.NilObjectID) // Use NilObjectID for new record
+	// Create an SDK record before generation
+	sdkRecord := &models.SDK{
+		UserID:         userID,
+		CollectionID:   collectionID,
+		GenerationType: models.GenerationTypeSDK,
+		Language:       language,
+		PackageName:    targetPackageName,
+		Status:         models.SDKStatusPending,
+	}
+	createdRecord, err := s.sdkService.CreateSDKRecord(ctx, sdkRecord)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate SDK via SDKService for collection %s: %w", collectionID, err)
+		return "", "", fmt.Errorf("failed to create SDK record for collection %s: %w", collectionID, err)
+	}
+
+	// Call the SDKService's GenerateSDK method with the created record ID
+	sdk, err := s.sdkService.GenerateSDK(ctx, sdkGenReq, createdRecord.ID)
+	if err != nil {
+		return "", createdRecord.ID.Hex(), fmt.Errorf("failed to generate SDK via SDKService for collection %s: %w", collectionID, err)
 	}
 
 	return sdk.FilePath, sdk.ID.Hex(), nil // Return all three values
+}
+
+// GetActiveProjectsCount returns the number of collections created in the last 7 days
+func (s *CollectionService) GetActiveProjectsCount(ctx context.Context) (int64, error) {
+	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
+	return s.repo.CountCreatedAfter(ctx, sevenDaysAgo)
 }

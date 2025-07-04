@@ -1,0 +1,8 @@
+{{if .IsLoggedIn}}
+<div class="user-profile-card">
+    <p><i class="fas fa-user"></i> User ID: {{ .UserID }} (Placeholder)</p>
+    <p><a href="/logout">Logout</a></p>
+</div>
+{{else}}
+<p>Not logged in. <a href="/login">Login</a></p>
+{{end}} 

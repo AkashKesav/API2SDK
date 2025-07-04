@@ -22,6 +22,7 @@ type UserRepository interface {
 	Delete(ctx context.Context, id primitive.ObjectID) error                     // Added Delete method
 	FindAll(ctx context.Context, page, limit int) ([]*models.User, int64, error) // Added FindAll for admin
 	CountAll(ctx context.Context) (int64, error)                                 // Added CountAll for stats
+	CountCreatedAfter(ctx context.Context, after time.Time) (int64, error)       // Added CountCreatedAfter for recent users
 }
 
 type mongoUserRepository struct {
@@ -163,4 +164,10 @@ func (r *mongoUserRepository) CountAll(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+// CountCreatedAfter returns the number of users created after the given time
+func (r *mongoUserRepository) CountCreatedAfter(ctx context.Context, after time.Time) (int64, error) {
+	filter := bson.M{"createdAt": bson.M{"$gt": after}}
+	return r.collection.CountDocuments(ctx, filter)
 }

@@ -210,6 +210,68 @@ func (s *PostmanAPIService) GetCollection(ctx context.Context, collectionUID str
 	return string(responseWrapper.Collection), nil
 }
 
+// SearchCollections searches for public collections on Postman based on a query and limit.
+func (s *PostmanAPIService) SearchCollections(ctx context.Context, query string, limit int) ([]PostmanCollection, error) {
+	apiKey := s.getPostmanAPIKey()
+	if apiKey == "" {
+		return nil, fmt.Errorf("postman API key not configured")
+	}
+
+	// Construct the search URL with query parameters
+	searchURL := fmt.Sprintf("%s/search?type=collection&q=%s", postmanAPIBaseURL, url.QueryEscape(query))
+	if limit > 0 {
+		searchURL += fmt.Sprintf("&perPage=%d", limit)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	if err != nil {
+		s.logger.Error("Failed to create request for searching collections", zap.String("query", query), zap.Error(err))
+		return nil, fmt.Errorf("failed to create request for search: %w", err)
+	}
+	req.Header.Set("X-Api-Key", apiKey)
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Error("Failed to search collections on Postman API", zap.String("query", query), zap.Error(err))
+		return nil, fmt.Errorf("failed to execute search request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		s.logger.Error("Postman API returned non-OK status for search collections",
+			zap.String("query", query),
+			zap.Int("status", resp.StatusCode),
+			zap.String("responseBody", string(bodyBytes)))
+		return nil, fmt.Errorf("postman API error for search '%s': status %d, body: %s", query, resp.StatusCode, string(bodyBytes))
+	}
+
+	var result struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			UID  string `json:"uid"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		s.logger.Error("Failed to decode search collections response", zap.String("query", query), zap.Error(err))
+		return nil, fmt.Errorf("failed to decode search response: %w", err)
+	}
+
+	// Convert the result data to PostmanCollection slice
+	collections := make([]PostmanCollection, len(result.Data))
+	for i, item := range result.Data {
+		collections[i] = PostmanCollection{
+			ID:   item.ID,
+			Name: item.Name,
+			UID:  item.UID,
+		}
+	}
+
+	s.logger.Info("Successfully searched collections", zap.String("query", query), zap.Int("count", len(collections)))
+	return collections, nil
+}
+
 // ImportCollectionByPostmanURL fetches a Postman collection given its public URL,
 // extracts the collection UID, and then calls GetCollection.
 // Returns the raw JSON string of the collection and the determined collection name.

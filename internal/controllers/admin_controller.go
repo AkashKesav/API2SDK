@@ -3,11 +3,16 @@ package controllers
 import (
 	"bufio"
 	"context" // Added for passing context to service methods
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/AkashKesav/API2SDK/internal/middleware"
+	"github.com/AkashKesav/API2SDK/configs"
+	"github.com/AkashKesav/API2SDK/internal/repositories"
+
 	"github.com/AkashKesav/API2SDK/internal/models"
 	"github.com/AkashKesav/API2SDK/internal/services"
 	"github.com/AkashKesav/API2SDK/internal/utils"
@@ -19,38 +24,65 @@ import (
 type AdminController struct {
 	userService             services.UserService
 	platformSettingsService services.PlatformSettingsService
-	logger                  *zap.Logger // Added logger
+	sdkService              services.SDKServiceInterface
+	collectionService       *services.CollectionService // Added for active projects
+	logger                  *zap.Logger
 }
 
 // NewAdminController creates a new AdminController
-func NewAdminController(userService services.UserService, platformSettingsService services.PlatformSettingsService, logger *zap.Logger) *AdminController { // Added logger
+func NewAdminController(userService services.UserService, platformSettingsService services.PlatformSettingsService, sdkService services.SDKServiceInterface, collectionService *services.CollectionService, logger *zap.Logger) *AdminController {
 	return &AdminController{
 		userService:             userService,
 		platformSettingsService: platformSettingsService,
-		logger:                  logger, // Store logger
+		sdkService:              sdkService,
+		collectionService:       collectionService,
+		logger:                  logger,
 	}
 }
 
 // GetStats handles GET /admin/stats
-// TODO: Implement actual system statistics retrieval
 func (ac *AdminController) GetStats(c fiber.Ctx) error {
 	totalUsers, err := ac.userService.GetTotalUsersCount(c.Context())
 	if err != nil {
-		// Log the error but don't fail the entire request, return 0 for users
-		// Or handle more gracefully depending on requirements
+		ac.logger.Error("Failed to get total users count", zap.Error(err))
 		totalUsers = 0
-		// Consider logging: ac.logger.Error("Failed to get total users count", zap.Error(err))
 	}
 
-	// TODO: Implement service calls for these stats
-	// These would require new methods in relevant services (e.g., SdkService, some session service)
-	// and corresponding repository methods.
-	generatedSDKs := int64(0)  // Placeholder - Assuming SdkService.GetTotalGeneratedSDKsCount()
-	activeSessions := int64(0) // Placeholder - Assuming some SessionService.GetActiveSessionsCount()
-	apiCallsToday := int64(0)  // Placeholder - Assuming some APILogService.GetAPICallsCount(today)
+	// Get generated SDKs count
+	generatedSDKs, err := ac.sdkService.GetTotalGeneratedSDKsCount(c.Context())
+	if err != nil {
+		ac.logger.Error("Failed to get total generated SDKs count", zap.Error(err))
+		generatedSDKs = 0
+	}
 
-	userID, userIDOk := middleware.GetUserID(c)
-	userRole, userRoleOk := middleware.GetUserID(c) // This was a typo, should be GetUserRole
+	// Get active sessions count (from the last 24 hours)
+	activeSessions := int64(0)
+	// Assuming 'db' is available in the controller's scope or passed in constructor
+	// For now, we'll assume it's accessible via configs.GetDatabase() as it's a global singleton.
+	// A better approach would be to inject these services into the AdminController.
+	sessionService := services.NewSessionService(repositories.NewSessionRepository(configs.GetDatabase()))
+	if sessionService != nil {
+		activeSessions, err = sessionService.GetSessionCountSince(c.Context(), time.Now().Add(-24*time.Hour))
+		if err != nil {
+			ac.logger.Error("Failed to get active sessions count", zap.Error(err))
+			activeSessions = 0
+		}
+	}
+
+	// Get API calls made today
+	apiCallsToday := int64(0)
+	apiLogService := services.NewAPILogService(repositories.NewAPILogRepository(configs.GetDatabase()))
+	if apiLogService != nil {
+		// Get the start of today
+		now := time.Now()
+		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+		apiCallsToday, err = apiLogService.GetAPICallCountSince(c.Context(), startOfDay)
+		if err != nil {
+			ac.logger.Error("Failed to get API calls count for today", zap.Error(err))
+			apiCallsToday = 0
+		}
+	}
 
 	statsMap := fiber.Map{
 		"total_users":     totalUsers,
@@ -58,61 +90,55 @@ func (ac *AdminController) GetStats(c fiber.Ctx) error {
 		"active_sessions": activeSessions,
 		"api_calls_today": apiCallsToday,
 	}
-	if userIDOk {
-		statsMap["user_id"] = userID // Admin making the request
-	}
-	if userRoleOk {
-		statsMap["role"] = userRole // Admin's role
-	}
 
 	return utils.SuccessResponse(c, "Successfully retrieved system statistics", statsMap)
 }
 
 // GetDashboardData handles GET /admin/dashboard
-// TODO: Implement actual dashboard data retrieval
 func (ac *AdminController) GetDashboardData(c fiber.Ctx) error {
+	// Get total users count
 	totalUsers, err := ac.userService.GetTotalUsersCount(c.Context())
 	if err != nil {
-		// Log error, but continue, providing a partial dashboard
-		// ac.logger.Error("Failed to get total users for dashboard", zap.Error(err))
-		totalUsers = -1 // Indicate an error or unavailable data
+		ac.logger.Error("Failed to get total users count", zap.Error(err))
+		totalUsers = -1
 	}
 
+	// Get platform settings to check maintenance mode
 	settings, err := ac.platformSettingsService.GetPlatformSettingsStruct(c.Context())
-	maintenanceMode := false // Default to false if settings can't be fetched
+	maintenanceMode := false
 	if err == nil {
 		maintenanceMode = settings.MaintenanceMode
 	} else {
-		// Log error
-		// ac.logger.Error("Failed to get platform settings for dashboard", zap.Error(err))
+		ac.logger.Error("Failed to get platform settings", zap.Error(err))
 	}
 
-	// Placeholders for more detailed stats that would require dedicated service methods
-	recentUsersCount := 0    // e.g., users registered in the last 7 days
-	recentSDKsGenerated := 0 // e.g., SDKs generated in the last 7 days
-	activeProjects := 0      // Placeholder for a count of active/used collections or APIs
+	// Get recent users count (users registered in the last 7 days)
+	recentUsersCount, err := ac.userService.GetRecentUsersCount(c.Context())
+	if err != nil {
+		ac.logger.Error("Failed to get recent users count", zap.Error(err))
+		recentUsersCount = 0
+	}
 
-	userID, userIDOk := middleware.GetUserID(c)
-	user, userOk := middleware.GetUser(c)
-	userRole := ""
-	userRoleOk := false
-	if userOk {
-		userRole = user.Role
-		userRoleOk = true
+	// Get recent SDKs generated count
+	recentSDKsGenerated, err := ac.sdkService.GetTotalGeneratedSDKsCount(c.Context())
+	if err != nil {
+		ac.logger.Error("Failed to get recent SDKs generated count", zap.Error(err))
+		recentSDKsGenerated = 0
+	}
+
+	// Get active projects count
+	activeProjects, err := ac.collectionService.GetActiveProjectsCount(c.Context())
+	if err != nil {
+		ac.logger.Error("Failed to get active projects count", zap.Error(err))
+		activeProjects = 0
 	}
 
 	dashboardDataMap := fiber.Map{
 		"total_users":             totalUsers,
 		"maintenance_mode_active": maintenanceMode,
-		"recent_users_count":      recentUsersCount,    // Placeholder
-		"recent_sdks_generated":   recentSDKsGenerated, // Placeholder
-		"active_projects":         activeProjects,      // Placeholder
-	}
-	if userIDOk {
-		dashboardDataMap["user_id"] = userID
-	}
-	if userRoleOk {
-		dashboardDataMap["role"] = userRole
+		"recent_users_count":      recentUsersCount,
+		"recent_sdks_generated":   recentSDKsGenerated,
+		"active_projects":         activeProjects,
 	}
 
 	return utils.SuccessResponse(c, "Successfully retrieved admin dashboard data", dashboardDataMap)
@@ -161,7 +187,13 @@ func (ac *AdminController) GetUserByID(c fiber.Ctx) error {
 func (ac *AdminController) UpdateUserRole(c fiber.Ctx) error {
 	userIDParam := c.Params("id")
 	var req models.UpdateUserRoleRequest
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		ac.logger.Error("Request body is empty for UpdateUserRole", zap.String("userID", userIDParam))
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		ac.logger.Error("Invalid request body for UpdateUserRole", zap.String("userID", userIDParam), zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body", err.Error())
 	}
 
@@ -205,7 +237,13 @@ func (ac *AdminController) GetPlatformSettings(c fiber.Ctx) error {
 // UpdatePlatformSettings handles PUT /admin/settings
 func (ac *AdminController) UpdatePlatformSettings(c fiber.Ctx) error {
 	var req models.PlatformSettingsRequest // This is now a struct with pointers
-	if err := c.Bind().Body(&req); err != nil {
+	body := c.Body()
+	if len(body) == 0 {
+		ac.logger.Error("Request body is empty for UpdatePlatformSettings")
+		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body for platform settings", "Request body is empty")
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		ac.logger.Error("Invalid request body for UpdatePlatformSettings", zap.Error(err))
 		return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body for platform settings", err.Error())
 	}
 
@@ -221,14 +259,6 @@ func (ac *AdminController) UpdatePlatformSettings(c fiber.Ctx) error {
 			validatedMap["postmanApiKey"] = strVal
 		} else {
 			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid type for postmanApiKey, must be a string", "postmanApiKey: must be a string")
-		}
-	}
-
-	if val, ok := req["jwtSecretKey"]; ok {
-		if strVal, isString := val.(string); isString {
-			validatedMap["jwtSecretKey"] = strVal
-		} else {
-			return utils.ErrorResponse(c, fiber.StatusBadRequest, "Invalid type for jwtSecretKey, must be a string", "jwtSecretKey: must be a string")
 		}
 	}
 
@@ -308,9 +338,20 @@ func (ac *AdminController) GetSystemLogs(c fiber.Ctx) error {
 			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Log file path not configured.", "Log file path is empty in settings")
 		}
 
-		file, err := os.Open(logFilePath)
+		// Sanitize the file path to prevent directory traversal
+		cleanPath, err := filepath.Abs(logFilePath)
 		if err != nil {
-			ac.logger.Error("Failed to open log file", zap.String("path", logFilePath), zap.Error(err))
+			ac.logger.Error("Failed to get absolute path for log file", zap.String("path", logFilePath), zap.Error(err))
+			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Invalid log file path", err.Error())
+		}
+		if !strings.HasPrefix(cleanPath, "/run/media/akash/Sandisk Ultra/API2SDK/logs") {
+			ac.logger.Warn("Attempt to access file outside of designated log directory", zap.String("path", cleanPath))
+			return utils.ErrorResponse(c, fiber.StatusForbidden, "Access to the specified log file is not allowed.", "")
+		}
+
+		file, err := os.Open(cleanPath)
+		if err != nil {
+			ac.logger.Error("Failed to open log file", zap.String("path", cleanPath), zap.Error(err))
 			return utils.ErrorResponse(c, fiber.StatusInternalServerError, "Could not open log file", err.Error())
 		}
 		defer file.Close()

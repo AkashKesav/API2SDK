@@ -6,6 +6,7 @@ import (
 	"github.com/AkashKesav/API2SDK/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // SDKRepositoryInterface defines the operations for SDK persistence.
@@ -18,4 +19,5 @@ type SDKRepositoryInterface interface {
 	UpdateFields(ctx context.Context, id primitive.ObjectID, fields bson.M) error
 	SoftDelete(ctx context.Context, id primitive.ObjectID, userID string) error
 	HardDelete(ctx context.Context, id primitive.ObjectID, userID string) error
+	Collection() *mongo.Collection
 }

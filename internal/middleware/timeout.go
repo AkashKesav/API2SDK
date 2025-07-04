@@ -48,7 +48,22 @@ func TimeoutMiddleware(config ...TimeoutConfig) fiber.Handler {
 
 		// Run the next handler in a goroutine
 		go func() {
-			done <- c.Next()
+			defer func() {
+				if r := recover(); r != nil {
+					select {
+					case done <- fiber.NewError(fiber.StatusInternalServerError, "Internal server error"):
+					default:
+						// Channel is full or closed, ignore
+					}
+				}
+			}()
+			
+			err := c.Next()
+			select {
+			case done <- err:
+			default:
+				// Channel is full or closed, ignore
+			}
 		}()
 
 		// Wait for either completion or timeout
@@ -57,6 +72,17 @@ func TimeoutMiddleware(config ...TimeoutConfig) fiber.Handler {
 			// Request completed within timeout
 			return err
 		case <-ctx.Done():
+			// Cancel the context to signal the goroutine to stop
+			cancel()
+			
+			// Wait a bit for the goroutine to finish gracefully
+			select {
+			case <-done:
+				// Goroutine finished
+			case <-time.After(100 * time.Millisecond):
+				// Goroutine didn't finish in time, but we'll return anyway
+			}
+			
 			// Request timed out
 			if ctx.Err() == context.DeadlineExceeded {
 				return cfg.TimeoutHandler(c)

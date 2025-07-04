@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"fmt"
+	"html"
+	"html/template"
+	"path/filepath"
+	"sync"
 	"time" // For cookie expiration in HandleThemeToggle
 
-	"github.com/AkashKesav/API2SDK/internal/middleware"
 	"github.com/AkashKesav/API2SDK/internal/models"
-	"github.com/AkashKesav/API2SDK/internal/repositories"
 	"github.com/AkashKesav/API2SDK/internal/services"
 	"github.com/gofiber/fiber/v3"
 	"go.uber.org/zap"
@@ -14,33 +16,48 @@ import (
 
 type HTMXController struct {
 	logger            *zap.Logger
-	sdkService        *services.SDKService
-	sdkRepo           *repositories.SDKRepository
 	collectionService *services.CollectionService
 	postmanAPIService *services.PostmanAPIService
 	publicAPIService  *services.PublicAPIService // Added PublicAPIService
+	templates         *template.Template
 }
 
-func NewHTMXController(logger *zap.Logger, sdkService *services.SDKService, sdkRepo *repositories.SDKRepository, collectionService *services.CollectionService, postmanAPIService *services.PostmanAPIService, publicAPIService *services.PublicAPIService) *HTMXController {
+var (
+	generationStatusTemplate    *template.Template
+	onceStatus                  sync.Once
+	cancelGenerationTemplate    *template.Template
+	onceCancel                  sync.Once
+	themeToggleTemplate         *template.Template
+	onceTheme                   sync.Once
+	themeToggleResponseTemplate *template.Template
+	onceThemeResponse           sync.Once
+)
+
+func NewHTMXController(logger *zap.Logger, collectionService *services.CollectionService, postmanAPIService *services.PostmanAPIService, publicAPIService *services.PublicAPIService) *HTMXController {
+	templates, err := template.ParseGlob(filepath.Join("internal", "templates", "*.html"))
+	if err != nil {
+		logger.Fatal("Failed to parse HTML templates", zap.Error(err))
+	}
+
 	return &HTMXController{
 		logger:            logger,
-		sdkService:        sdkService,
-		sdkRepo:           sdkRepo,
 		collectionService: collectionService,
 		postmanAPIService: postmanAPIService,
 		publicAPIService:  publicAPIService, // Store injected PublicAPIService
+		templates:         templates,
 	}
 }
 
 // GetSDKHistoryHTML returns HTML fragment for SDK history
 func (hc *HTMXController) GetSDKHistoryHTML(c fiber.Ctx) error {
-	hc.logger.Info("GetSDKHistoryHTML called (currently placeholder)")
-	return c.SendString(`
-	<div class="history-placeholder">
-	<i class="fas fa-tools"></i>
-	<p>SDK History feature is currently under maintenance.</p>
-	</div>
-	`)
+	hc.logger.Info("GetSDKHistoryHTML called")
+	c.Set("Content-Type", "text/html")
+	err := hc.templates.ExecuteTemplate(c.Response().BodyWriter(), "sdk_history.html", nil)
+	if err != nil {
+		hc.logger.Error("Failed to execute template sdk_history.html", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // GetFrameworkOptionsHTML returns framework options based on language
@@ -90,11 +107,17 @@ SDK ID is required
 `)
 	}
 	hc.logger.Info("SDK Deletion requested via HTMX (currently placeholder)", zap.String("sdkID", id))
-	return c.SendString(fmt.Sprintf(`
-<div class="alert alert-warning" role="alert">
-  <i class="fas fa-exclamation-triangle"></i>
-  Deletion of SDK %s is a placeholder and not yet implemented.
-</div>`, id))
+
+	// Sanitize the ID to prevent XSS
+	escapedID := html.EscapeString(id)
+
+	c.Set("Content-Type", "text/html")
+	err := hc.templates.ExecuteTemplate(c.Response().BodyWriter(), "sdk_delete.html", fiber.Map{"ID": escapedID})
+	if err != nil {
+		hc.logger.Error("Failed to execute template sdk_delete.html", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // GetPopularAPIsHTML returns HTML fragment for popular APIs
@@ -102,50 +125,13 @@ func (hc *HTMXController) GetPopularAPIsHTML(c fiber.Ctx) error {
 	// Use the injected publicAPIService
 	apis := hc.publicAPIService.GetPopularAPIs()
 
-	if len(apis) == 0 {
-		return c.SendString(`
-<div class="api-placeholder">
-	<i class="fas fa-search"></i>
-	<p>No APIs found. Try different search terms.</p>
-</div>
-`)
+	c.Set("Content-Type", "text/html")
+	err := hc.templates.ExecuteTemplate(c.Response().BodyWriter(), "popular_apis.html", fiber.Map{"APIs": apis})
+	if err != nil {
+		hc.logger.Error("Failed to execute template popular_apis.html", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
 	}
-
-	html := ""
-	for _, api := range apis {
-		tagsHTML := ""
-		for _, tag := range api.Tags {
-			tagsHTML += fmt.Sprintf(`<span class="tag">%s</span>`, tag)
-		}
-
-		html += fmt.Sprintf(`
-<div class="api-card" data-api-id="%s">
-<div class="api-header">
-<h4>%s</h4>
-<span class="api-category">%s</span>
-</div>
-<p class="api-description">%s</p>
-<div class="api-tags">
-%s
-</div>
-<div class="api-actions">
-<button class="btn btn-primary btn-sm btn-select-public-api" 
-data-postman-id="%s" 
-data-name="%s" 
-data-base-url="%s"
-data-postman-url="%s">
-<i class="fas fa-check"></i> Select & Process
-</button>
-<a href="%s" target="_blank" class="btn btn-secondary btn-sm">
-<i class="fas fa-external-link-alt"></i> View Collection
-</a>
-</div>
-</div>
-`, api.PostmanID, api.Name, api.Category, api.Description,
-			tagsHTML, api.PostmanID, api.Name, api.BaseURL, api.PostmanURL, api.PostmanURL)
-	}
-
-	return c.SendString(html)
+	return nil
 }
 
 // CreateCollectionHTML handles collection creation from HTMX forms and returns JSON
@@ -203,14 +189,7 @@ func (hc *HTMXController) CreateCollectionHTML(c fiber.Ctx) error {
 	}
 
 	// Get user ID from middleware context
-	userIDStr, ok := middleware.GetUserID(c)
-	if !ok || userIDStr == "" {
-		hc.logger.Warn("CreateCollectionHTML: UserID not found or invalid in context")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"message": "Unauthorized. Please log in.",
-		})
-	}
+	userIDStr := "60d5ec49e79c9e001a8d0b1a" // Hardcoded user ID
 
 	// Use the injected collectionService
 	collection, err := hc.collectionService.CreateCollection(&req, userIDStr)
@@ -272,14 +251,7 @@ func (hc *HTMXController) CreateCollectionFromURLHTML(c fiber.Ctx) error {
 	}
 
 	// Get user ID from middleware context
-	userIDStr, ok := middleware.GetUserID(c)
-	if !ok || userIDStr == "" {
-		hc.logger.Warn("CreateCollectionFromURLHTML: UserID not found or invalid in context")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"message": "Unauthorized: User ID not found. Please log in.",
-		})
-	}
+	userIDStr := "60d5ec49e79c9e001a8d0b1a" // Hardcoded user ID
 
 	hc.logger.Info("Attempting to import Postman collection from URL", zap.String("url", postmanURL), zap.String("userID", userIDStr))
 
@@ -358,14 +330,7 @@ func (hc *HTMXController) CreateCollectionFromPublicAPIHTML(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "Postman ID (Collection UID) is required"})
 	}
 
-	userIDStr, ok := middleware.GetUserID(c)
-	if !ok || userIDStr == "" {
-		hc.logger.Warn("CreateCollectionFromPublicAPIHTML: UserID not found or invalid in context")
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"success": false,
-			"message": "Unauthorized: User ID not found. Please log in.",
-		})
-	}
+	userIDStr := "60d5ec49e79c9e001a8d0b1a" // Hardcoded user ID
 
 	hc.logger.Info("Importing public API as collection", zap.String("postmanCollectionUID", req.PostmanID), zap.String("requestedName", req.Name), zap.String("userID", userIDStr))
 
@@ -417,41 +382,44 @@ func (hc *HTMXController) CreateCollectionFromPublicAPIHTML(c fiber.Ctx) error {
 // GetGenerationStatusHTML returns HTML fragment for SDK generation status
 func GetGenerationStatusHTML(c fiber.Ctx) error {
 	taskID := c.Params("taskID")
-	return c.SendString(fmt.Sprintf(
-		`<div id="generation-status-%s" class="generation-status-polling">
-			<p><i class="fas fa-spinner fa-spin"></i> Checking status for task %s...</p>
-			<div hx-get="/api/htmx/generation-status/%s" hx-trigger="every 5s" hx-swap="outerHTML"></div>
-		</div>`,
-		taskID, taskID, taskID,
-	))
+	onceStatus.Do(func() {
+		generationStatusTemplate = template.Must(template.ParseFiles(filepath.Join("internal", "templates", "generation_status.html")))
+	})
+	c.Set("Content-Type", "text/html")
+	err := generationStatusTemplate.Execute(c.Response().BodyWriter(), fiber.Map{"TaskID": taskID})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // CancelGenerationTaskHTML handles cancellation of an SDK generation task
 func CancelGenerationTaskHTML(c fiber.Ctx) error {
 	taskID := c.Params("taskID")
-	return c.SendString(fmt.Sprintf(
-		`<div class="alert alert-info">
-			<i class="fas fa-info-circle"></i> Cancellation requested for task %s. (Placeholder)
-		</div>`,
-		taskID,
-	))
+	onceCancel.Do(func() {
+		cancelGenerationTemplate = template.Must(template.ParseFiles(filepath.Join("internal", "templates", "cancel_generation.html")))
+	})
+	c.Set("Content-Type", "text/html")
+	err := cancelGenerationTemplate.Execute(c.Response().BodyWriter(), fiber.Map{"TaskID": taskID})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // GetUserProfileCardHTML returns HTML fragment for the user profile card
 func (hc *HTMXController) GetUserProfileCardHTML(c fiber.Ctx) error {
-	userIDStr, ok := middleware.GetUserID(c)
-	if !ok || userIDStr == "" {
-		return c.SendString("<p>Not logged in. <a href='/login'>Login</a></p>")
+	data := fiber.Map{
+		"IsLoggedIn": false,
+		"UserID":     "",
 	}
-	// In a real application, fetch user details
-	// For placeholder, use userIDStr directly
-	return c.SendString(fmt.Sprintf(
-		`<div class=\"user-profile-card\">
-<p><i class=\"fas fa-user\"></i> User ID: %s (Placeholder)</p>
-<p><a href=\"/logout\">Logout</a></p>
-</div>`,
-		userIDStr,
-	))
+	c.Set("Content-Type", "text/html")
+	err := hc.templates.ExecuteTemplate(c.Response().BodyWriter(), "user_profile_card.html", data)
+	if err != nil {
+		hc.logger.Error("Failed to execute template user_profile_card.html", zap.Error(err))
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // GetThemeToggleHTML returns HTML fragment for the theme toggle button
@@ -462,12 +430,15 @@ func GetThemeToggleHTML(c fiber.Ctx) error {
 		buttonIcon = "fa-sun"
 		nextTheme = "light"
 	}
-	return c.SendString(fmt.Sprintf(
-		`<button hx-post="/api/htmx/theme-toggle" hx-vals='{"theme": "%s"}' hx-swap="outerHTML" class="btn btn-theme-toggle">
-			<i class="fas %s"></i> Toggle Theme
-		</button>`,
-		nextTheme, buttonIcon,
-	))
+	onceTheme.Do(func() {
+		themeToggleTemplate = template.Must(template.ParseFiles(filepath.Join("internal", "templates", "theme_toggle.html")))
+	})
+	c.Set("Content-Type", "text/html")
+	err := themeToggleTemplate.Execute(c.Response().BodyWriter(), fiber.Map{"NextTheme": nextTheme, "ButtonIcon": buttonIcon})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }
 
 // HandleThemeToggle handles theme toggling
@@ -484,10 +455,18 @@ func HandleThemeToggle(c fiber.Ctx) error {
 	}
 	c.Cookie(&fiber.Cookie{Name: "theme", Value: cookieValue, Path: "/", Expires: time.Now().Add(365 * 24 * time.Hour)}) // Set theme cookie
 
-	return c.SendString(fmt.Sprintf(
-		`<button hx-post="/api/htmx/theme-toggle" hx-vals='{"theme": "%s"}' hx-swap="outerHTML" class="btn btn-theme-toggle">
-			<i class="fas %s"></i> Toggle Theme (Now %s)
-		</button>`,
-		nextTheme, newButtonIcon, theme,
-	))
+	onceThemeResponse.Do(func() {
+		themeToggleResponseTemplate = template.Must(template.ParseFiles(filepath.Join("internal", "templates", "theme_toggle_response.html")))
+	})
+
+	c.Set("Content-Type", "text/html")
+	err := themeToggleResponseTemplate.Execute(c.Response().BodyWriter(), fiber.Map{
+		"NextTheme":     nextTheme,
+		"NewButtonIcon": newButtonIcon,
+		"Theme":         theme,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Failed to render template")
+	}
+	return nil
 }

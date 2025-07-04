@@ -23,12 +23,12 @@ func NewCollectionRepository(db *mongo.Database) *CollectionRepository {
 }
 
 // Create inserts a new collection
-func (r *CollectionRepository) Create(collection *models.Collection) (*models.Collection, error) {
+func (r *CollectionRepository) Create(ctx context.Context, collection *models.Collection) (*models.Collection, error) {
 	collection.ID = primitive.NewObjectID()
 	collection.CreatedAt = time.Now()
 	collection.UpdatedAt = time.Now()
 
-	result, err := r.collection.InsertOne(context.Background(), collection)
+	result, err := r.collection.InsertOne(ctx, collection)
 	if err != nil {
 		return nil, err
 	}
@@ -38,15 +38,15 @@ func (r *CollectionRepository) Create(collection *models.Collection) (*models.Co
 }
 
 // GetAll retrieves all collections
-func (r *CollectionRepository) GetAll() ([]*models.Collection, error) {
-	cursor, err := r.collection.Find(context.Background(), bson.M{})
+func (r *CollectionRepository) GetAll(ctx context.Context) ([]*models.Collection, error) {
+	cursor, err := r.collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(ctx)
 
 	var collections []*models.Collection
-	if err = cursor.All(context.Background(), &collections); err != nil {
+	if err = cursor.All(ctx, &collections); err != nil {
 		return nil, err
 	}
 
@@ -54,14 +54,14 @@ func (r *CollectionRepository) GetAll() ([]*models.Collection, error) {
 }
 
 // GetByID retrieves a collection by ID
-func (r *CollectionRepository) GetByID(id string) (*models.Collection, error) {
+func (r *CollectionRepository) GetByID(ctx context.Context, id string) (*models.Collection, error) {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
 	}
 
 	var collection models.Collection
-	err = r.collection.FindOne(context.Background(), bson.M{"_id": objectID}).Decode(&collection)
+	err = r.collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&collection)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (r *CollectionRepository) GetByID(id string) (*models.Collection, error) {
 }
 
 // Update updates a collection
-func (r *CollectionRepository) Update(id string, updateData *models.UpdateCollectionRequest) (*models.Collection, error) {
+func (r *CollectionRepository) Update(ctx context.Context, id string, updateData *models.UpdateCollectionRequest) (*models.Collection, error) {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (r *CollectionRepository) Update(id string, updateData *models.UpdateCollec
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
 	var updatedCollection models.Collection
 	err = r.collection.FindOneAndUpdate(
-		context.Background(),
+		ctx,
 		bson.M{"_id": objectID},
 		update,
 		opts,
@@ -109,28 +109,34 @@ func (r *CollectionRepository) Update(id string, updateData *models.UpdateCollec
 }
 
 // Delete removes a collection
-func (r *CollectionRepository) Delete(id string) error {
+func (r *CollectionRepository) Delete(ctx context.Context, id string) error {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
 
-	_, err = r.collection.DeleteOne(context.Background(), bson.M{"_id": objectID})
+	_, err = r.collection.DeleteOne(ctx, bson.M{"_id": objectID})
 	return err
 }
 
 // GetByUserID retrieves collections by user ID
-func (r *CollectionRepository) GetByUserID(userID string) ([]*models.Collection, error) {
-	cursor, err := r.collection.Find(context.Background(), bson.M{"user_id": userID})
+func (r *CollectionRepository) GetByUserID(ctx context.Context, userID string) ([]*models.Collection, error) {
+	cursor, err := r.collection.Find(ctx, bson.M{"user_id": userID})
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(ctx)
 
 	var collections []*models.Collection
-	if err = cursor.All(context.Background(), &collections); err != nil {
+	if err = cursor.All(ctx, &collections); err != nil {
 		return nil, err
 	}
 
 	return collections, nil
+}
+
+// CountCreatedAfter returns the number of collections created after the given time
+func (r *CollectionRepository) CountCreatedAfter(ctx context.Context, after time.Time) (int64, error) {
+	filter := bson.M{"created_at": bson.M{"$gt": after}}
+	return r.collection.CountDocuments(ctx, filter)
 }

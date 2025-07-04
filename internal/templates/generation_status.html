@@ -1,0 +1,4 @@
+<div id="generation-status-{{ .TaskID }}" class="generation-status-polling">
+    <p><i class="fas fa-spinner fa-spin"></i> Checking status for task {{ .TaskID }}...</p>
+    <div hx-get="/api/htmx/generation-status/{{ .TaskID }}" hx-trigger="every 5s" hx-swap="outerHTML"></div>
+</div> 

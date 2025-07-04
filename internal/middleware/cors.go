@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"os"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,7 @@ type CORSConfig struct {
 
 // DefaultCORSConfig is the default CORS configuration
 var DefaultCORSConfig = CORSConfig{
-	AllowOrigins:     []string{"*"},
+	AllowOrigins:     []string{"https://api2sdk.com"},
 	AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"},
 	AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
 	AllowCredentials: false,
@@ -38,13 +39,35 @@ var DevelopmentCORSConfig = CORSConfig{
 }
 
 // ProductionCORSConfig is a more restrictive CORS configuration for production
-var ProductionCORSConfig = CORSConfig{
-	AllowOrigins:     []string{"https://yourdomain.com", "https://www.yourdomain.com"},
-	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-	AllowCredentials: true,
-	ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining"},
-	MaxAge:           86400, // 24 hours
+// Uses allowed origins from environment variables
+func GetProductionCORSConfig() CORSConfig {
+	// Get allowed origins from environment variables
+	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+	var allowedOrigins []string
+
+	if allowedOriginsStr != "" {
+		// Split by comma and trim spaces
+		for _, origin := range strings.Split(allowedOriginsStr, ",") {
+			origin = strings.TrimSpace(origin)
+			if origin != "" {
+				allowedOrigins = append(allowedOrigins, origin)
+			}
+		}
+	}
+
+	// Fallback to default if no origins specified
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = []string{"https://api2sdk.com"}
+	}
+
+	return CORSConfig{
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-CSRF-Token"},
+		AllowCredentials: true,
+		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-Total-Count"},
+		MaxAge:           86400, // 24 hours
+	}
 }
 
 // CORSMiddleware creates a CORS middleware with the given configuration
@@ -133,15 +156,15 @@ func DevelopmentCORSMiddleware() fiber.Handler {
 
 // ProductionCORSMiddleware returns CORS middleware for production
 func ProductionCORSMiddleware() fiber.Handler {
-	return CORSMiddleware(ProductionCORSConfig)
+	return CORSMiddleware(GetProductionCORSConfig())
 }
 
 // APICORSMiddleware returns CORS middleware specifically for API endpoints
 func APICORSMiddleware() fiber.Handler {
 	config := CORSConfig{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{"https://my-trusted-api-consumer.com"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key"},
+		AllowHeaders:     []string{"Origin", "Content-Tye", "Accept", "Authorization", "X-API-Key"},
 		AllowCredentials: false,
 		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Total-Count"},
 		MaxAge:           3600,

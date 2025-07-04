@@ -14,6 +14,7 @@ type RateLimiter struct {
 	mutex    sync.RWMutex
 	limit    int
 	window   time.Duration
+	stopCh   chan struct{}
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -22,6 +23,7 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 		requests: make(map[string][]time.Time),
 		limit:    limit,
 		window:   window,
+		stopCh:   make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -35,23 +37,28 @@ func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mutex.Lock()
-		cutoff := time.Now().Add(-rl.window)
-		for ip, timestamps := range rl.requests {
-			var validTimestamps []time.Time
-			for _, timestamp := range timestamps {
-				if timestamp.After(cutoff) {
-					validTimestamps = append(validTimestamps, timestamp)
+	for {
+		select {
+		case <-rl.stopCh:
+			return
+		case <-ticker.C:
+			rl.mutex.Lock()
+			cutoff := time.Now().Add(-rl.window)
+			for ip, timestamps := range rl.requests {
+				var validTimestamps []time.Time
+				for _, timestamp := range timestamps {
+					if timestamp.After(cutoff) {
+						validTimestamps = append(validTimestamps, timestamp)
+					}
+				}
+				if len(validTimestamps) > 0 {
+					rl.requests[ip] = validTimestamps
+				} else {
+					delete(rl.requests, ip)
 				}
 			}
-			if len(validTimestamps) > 0 {
-				rl.requests[ip] = validTimestamps
-			} else {
-				delete(rl.requests, ip)
-			}
+			rl.mutex.Unlock()
 		}
-		rl.mutex.Unlock()
 	}
 }
 
@@ -167,4 +174,9 @@ func PublicAPIRateLimitMiddleware() fiber.Handler {
 func CustomRateLimitMiddleware(limit int, window time.Duration) fiber.Handler {
 	limiter := NewRateLimiter(limit, window)
 	return RateLimitMiddleware(limiter)
+}
+
+// Stop gracefully stops the rate limiter
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
 }

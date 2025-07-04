@@ -1,0 +1,33 @@
+{{if .APIs}}
+    {{range .APIs}}
+    <div class="api-card" data-api-id="{{.PostmanID}}">
+        <div class="api-header">
+            <h4>{{.Name}}</h4>
+            <span class="api-category">{{.Category}}</span>
+        </div>
+        <p class="api-description">{{.Description}}</p>
+        <div class="api-tags">
+            {{range .Tags}}
+            <span class="tag">{{.}}</span>
+            {{end}}
+        </div>
+        <div class="api-actions">
+            <button class="btn btn-primary btn-sm btn-select-public-api"
+                    data-postman-id="{{.PostmanID}}"
+                    data-name="{{.Name}}"
+                    data-base-url="{{.BaseURL}}"
+                    data-postman-url="{{.PostmanURL}}">
+                <i class="fas fa-check"></i> Select & Process
+            </button>
+            <a href="{{.PostmanURL}}" target="_blank" class="btn btn-secondary btn-sm">
+                <i class="fas fa-external-link-alt"></i> View Collection
+            </a>
+        </div>
+    </div>
+    {{end}}
+{{else}}
+<div class="api-placeholder">
+    <i class="fas fa-search"></i>
+    <p>No APIs found. Try different search terms.</p>
+</div>
+{{end}} 

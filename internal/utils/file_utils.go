@@ -15,6 +15,19 @@ import (
 // baseDir is the root directory under which temporary directories will be created.
 // identifier is a unique string (e.g., SDK record ID) to make the directory name unique.
 func CreateTempDirForSDK(baseDir string, identifier string) (string, error) {
+	// Validate inputs to prevent path traversal
+	if strings.Contains(baseDir, "..") || strings.Contains(identifier, "..") {
+		return "", fmt.Errorf("invalid path: path traversal detected")
+	}
+	
+	// Clean the base directory path
+	baseDir = filepath.Clean(baseDir)
+	
+	// Sanitize identifier to prevent injection
+	identifier = strings.ReplaceAll(identifier, "..", "")
+	identifier = strings.ReplaceAll(identifier, "/", "_")
+	identifier = strings.ReplaceAll(identifier, "\\", "_")
+	
 	// Ensure the base temporary directory exists
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create base temp directory %s: %w", baseDir, err)
@@ -25,6 +38,23 @@ func CreateTempDirForSDK(baseDir string, identifier string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create specific temp directory for %s: %w", identifier, err)
 	}
+	
+	// Verify the created path is within the base directory
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for base directory: %w", err)
+	}
+	
+	absTempDir, err := filepath.Abs(tempDirPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for temp directory: %w", err)
+	}
+	
+	if !strings.HasPrefix(absTempDir, absBase) {
+		os.RemoveAll(tempDirPath) // Clean up
+		return "", fmt.Errorf("security violation: temp directory outside base directory")
+	}
+	
 	return tempDirPath, nil
 }
 
@@ -147,10 +177,16 @@ func ZipDirectory(sourceDir string, targetZipPath string) error {
 			if err != nil {
 				return fmt.Errorf("ZipDirectory: failed to open file %s for zipping: %w", filePath, err)
 			}
-			defer fileToZip.Close()
-
-			if _, err := io.Copy(writer, fileToZip); err != nil {
-				return fmt.Errorf("ZipDirectory: failed to copy data from %s to zip: %w", filePath, err)
+			
+			// Copy data and ensure file is closed
+			_, copyErr := io.Copy(writer, fileToZip)
+			closeErr := fileToZip.Close()
+			
+			if copyErr != nil {
+				return fmt.Errorf("ZipDirectory: failed to copy data from %s to zip: %w", filePath, copyErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("ZipDirectory: failed to close file %s: %w", filePath, closeErr)
 			}
 		}
 		return nil

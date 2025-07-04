@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -120,32 +121,53 @@ func (l *Logger) Error(message string, args ...interface{}) {
 	l.log(ERROR, message, args...)
 }
 
-// Global logger instance
-var globalLogger = NewLogger()
+// Global logger instance with mutex for thread safety
+var (
+	globalLogger     *Logger
+	globalLoggerOnce sync.Once
+	globalLoggerMu   sync.RWMutex
+)
 
-// SetGlobalLogger sets the global logger instance
+// GetGlobalLogger returns the global logger instance, initializing it if needed
+func GetGlobalLogger() *Logger {
+	globalLoggerOnce.Do(func() {
+		globalLogger = NewLogger()
+	})
+	
+	globalLoggerMu.RLock()
+	defer globalLoggerMu.RUnlock()
+	return globalLogger
+}
+
+// SetGlobalLogger sets the global logger instance in a thread-safe manner
 func SetGlobalLogger(logger *Logger) {
+	if logger == nil {
+		return
+	}
+	
+	globalLoggerMu.Lock()
+	defer globalLoggerMu.Unlock()
 	globalLogger = logger
 }
 
 // Debug logs a debug message using the global logger
 func Debug(message string, args ...interface{}) {
-	globalLogger.Debug(message, args...)
+	GetGlobalLogger().Debug(message, args...)
 }
 
 // Info logs an info message using the global logger
 func Info(message string, args ...interface{}) {
-	globalLogger.Info(message, args...)
+	GetGlobalLogger().Info(message, args...)
 }
 
 // Warn logs a warning message using the global logger
 func Warn(message string, args ...interface{}) {
-	globalLogger.Warn(message, args...)
+	GetGlobalLogger().Warn(message, args...)
 }
 
 // Error logs an error message using the global logger
 func Error(message string, args ...interface{}) {
-	globalLogger.Error(message, args...)
+	GetGlobalLogger().Error(message, args...)
 }
 
 // LoggerMiddleware creates a logging middleware

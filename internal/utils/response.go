@@ -97,47 +97,6 @@ func EnsureDir(dirName string) error {
 	return nil
 }
 
-// ConvertToPascalCase converts a string to PascalCase.
-// Example: "my-package-name" -> "MyPackageName"
-// Example: "my_package_name" -> "MyPackageName"
-func ConvertToPascalCase(s string) string {
-	words := strings.FieldsFunc(s, func(r rune) bool {
-		return r == '-' || r == '_'
-	})
-	for i, word := range words {
-		if len(word) > 0 {
-			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
-		}
-	}
-	return strings.Join(words, "")
-}
-
-// ConvertToKebabCase converts a string to kebab-case.
-// Example: "MyPackageName" -> "my-package-name"
-// Example: "my_package_name" -> "my-package-name"
-// Example: "My Package Name" -> "my-package-name"
-func ConvertToKebabCase(s string) string {
-	// Replace underscores and spaces with hyphens
-	replaced := strings.ReplaceAll(s, "_", "-")
-	replaced = strings.ReplaceAll(replaced, " ", "-")
-
-	// Handle CamelCase by inserting hyphens
-	var result strings.Builder
-	for i, r := range replaced {
-		if i > 0 && unicode.IsUpper(r) && (unicode.IsLower(rune(replaced[i-1])) || unicode.IsDigit(rune(replaced[i-1]))) {
-			// Add hyphen if current is uppercase and previous is lowercase/digit
-			// and also ensure we don't add hyphen if previous was already a hyphen (e.g. from original string)
-			if replaced[i-1] != '-' {
-				result.WriteRune('-')
-			}
-		}
-		result.WriteRune(unicode.ToLower(r))
-	}
-	// Remove consecutive hyphens that might have been formed
-	final := strings.ReplaceAll(result.String(), "--", "-")
-	return final
-}
-
 // GetOrgFromPkg extracts the organization part from a package name string.
 // If no separator '/' is found, it returns the original string.
 // Example: "my-org/my-repo" -> "my-org"
@@ -174,38 +133,4 @@ func ConvertToAlphanumeric(s string, defaultVal string) string {
 		return defaultVal
 	}
 	return result.String()
-}
-
-// ConvertToSnakeCase converts a string to snake_case.
-// Example: "MyPackageName" -> "my_package_name"
-// Example: "my-package-name" -> "my_package_name"
-// Example: "my_package_name" -> "my_package_name"
-// Example: "My Package Name" -> "my_package_name"
-// Example: "myOrg/myClient" -> "my_org_my_client"
-func ConvertToSnakeCase(s string) string {
-	// Replace common separators with underscore
-	replaced := strings.ReplaceAll(s, "-", "_")
-	replaced = strings.ReplaceAll(replaced, " ", "_")
-	replaced = strings.ReplaceAll(replaced, "/", "_")
-
-	var result strings.Builder
-	for i, r := range replaced {
-		// If it's an uppercase letter
-		if unicode.IsUpper(r) {
-			// Add an underscore if it's not the first character,
-			// and the previous character is not already an underscore,
-			// and the previous character is a letter or digit (to avoid underscore after underscore like in "MY_APP" -> "m_y__a_p_p")
-			if i > 0 && replaced[i-1] != '_' && (unicode.IsLower(rune(replaced[i-1])) || unicode.IsDigit(rune(replaced[i-1]))) {
-				result.WriteRune('_')
-			}
-			result.WriteRune(unicode.ToLower(r))
-		} else {
-			result.WriteRune(r) // Keep it as is (already lowercase or underscore or digit)
-		}
-	}
-	// Remove potential consecutive underscores
-	final := strings.ReplaceAll(result.String(), "__", "_")
-	// Remove leading/trailing underscores that might form
-	final = strings.Trim(final, "_")
-	return final
 }
